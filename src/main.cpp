@@ -8,15 +8,20 @@
 #include <BLEAdvertisedDevice.h>
 #include <esp_system.h>
 #include <esp_chip_info.h>
+#include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V2
-// Safe core firmware. External-radio modules are shown as expansion slots
-// until the relevant hardware is connected and configured.
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V3
+// Adds local Wi-Fi setup without storing home credentials in GitHub/source.
+// The fallback AP remains available for configuration and recovery.
 
 WebServer server(80);
 
 static const char *AP_SSID = "S3-Cyberdeck";
 static const char *AP_PASS = "cyberdeck123";
+static const char *SETUP_PATH = "/network";
+Preferences prefs;
+String staSsid;
+bool staConnected = false;
 
 static const int I2C_SDA = 8;
 static const int I2C_SCL = 9;
@@ -50,7 +55,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V2</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V3</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -61,6 +66,7 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
+         "<a class='b' href='/network'>Network Setup</a>"
          "<a class='b' href='/wifi'>Wi-Fi Survey</a>"
          "<a class='b' href='/ble'>BLE Survey</a>"
          "<a class='b' href='/i2c'>I2C Scanner</a>"
@@ -70,9 +76,17 @@ void root() {
          "<a class='b' href='/expansion'>Expansion Bay</a>"
          "</div>");
   h += "<div class='card'><b>Deck status</b><br>"
-       "AP: <span class='mono'>"+String(AP_SSID)+"</span><br>"
-       "IP: <span class='mono'>"+WiFi.softAPIP().toString()+"</span><br>"
-       "Free heap: "+String(ESP.getFreeHeap())+" B<br>"
+       "Fallback AP: <span class='mono'>"+String(AP_SSID)+"</span><br>"
+       "AP IP: <span class='mono'>"+WiFi.softAPIP().toString()+"</span><br>";
+  if(WiFi.status()==WL_CONNECTED){
+    h += "Home Wi-Fi: <span class='ok'>CONNECTED</span><br>"
+         "SSID: <span class='mono'>"+esc(WiFi.SSID())+"</span><br>"
+         "LAN IP: <span class='mono'>"+WiFi.localIP().toString()+"</span><br>";
+  } else {
+    h += "Home Wi-Fi: <span class='warn'>NOT CONNECTED</span><br>"
+         "<a href='/network'>Configure network</a><br>";
+  }
+  h += "Free heap: "+String(ESP.getFreeHeap())+" B<br>"
        "Free PSRAM: "+String(ESP.getFreePsram())+" B<br>"
        "Uptime: "+String((millis()-bootMs)/1000)+" s</div>";
   h += F("<div class='card'><span class='tag'>16 MB Flash</span>"
@@ -81,6 +95,107 @@ void root() {
          "<span class='tag'>SPI</span><span class='tag'>ADC</span>"
          "<span class='tag'>PWM</span><span class='tag'>USB</span></div>");
   sendHTML(h+foot());
+}
+
+
+void connectSavedWiFi() {
+  prefs.begin("net", true);
+  staSsid = prefs.getString("ssid", "");
+  String pass = prefs.getString("pass", "");
+  prefs.end();
+
+  if(!staSsid.length()) return;
+
+  Serial.printf("Connecting to Wi-Fi: %s\n", staSsid.c_str());
+  WiFi.begin(staSsid.c_str(), pass.c_str());
+
+  unsigned long start = millis();
+  while(WiFi.status()!=WL_CONNECTED && millis()-start < 15000) {
+    delay(250);
+  }
+  staConnected = (WiFi.status()==WL_CONNECTED);
+  if(staConnected) {
+    Serial.print("LAN IP: http://");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("Saved Wi-Fi unavailable; fallback AP remains active.");
+  }
+}
+
+void networkPage() {
+  String msg;
+
+  if(server.method()==HTTP_POST && server.hasArg("ssid")) {
+    String ssid = server.arg("ssid");
+    String pass = server.arg("pass");
+    ssid.trim();
+
+    if(ssid.length()) {
+      prefs.begin("net", false);
+      prefs.putString("ssid", ssid);
+      prefs.putString("pass", pass);
+      prefs.end();
+
+      WiFi.disconnect(false, false);
+      delay(200);
+      WiFi.begin(ssid.c_str(), pass.c_str());
+
+      unsigned long start = millis();
+      while(WiFi.status()!=WL_CONNECTED && millis()-start < 15000) delay(250);
+
+      if(WiFi.status()==WL_CONNECTED) {
+        staSsid = ssid;
+        staConnected = true;
+        msg = "Connected. LAN IP: " + WiFi.localIP().toString();
+      } else {
+        staConnected = false;
+        msg = "Credentials saved, but connection failed. Check password/signal and try again.";
+      }
+    }
+  }
+
+  if(server.hasArg("forget") && server.arg("forget")=="1") {
+    prefs.begin("net", false);
+    prefs.clear();
+    prefs.end();
+    WiFi.disconnect(true, false);
+    staSsid = "";
+    staConnected = false;
+    msg = "Saved home Wi-Fi credentials cleared.";
+  }
+
+  String h=head("Local network setup");
+  h += F("<div class='card'>The Cyberdeck fallback AP stays enabled. Home Wi-Fi credentials are stored only in ESP32 NVS, not in the source code or GitHub.</div>");
+
+  if(msg.length()) h += "<div class='card'>"+esc(msg)+"</div>";
+
+  h += "<div class='card'><b>Status</b><br>";
+  if(WiFi.status()==WL_CONNECTED) {
+    h += "Connected to: <span class='mono'>"+esc(WiFi.SSID())+"</span><br>"
+         "LAN IP: <span class='mono'>"+WiFi.localIP().toString()+"</span><br>"
+         "RSSI: "+String(WiFi.RSSI())+" dBm";
+  } else {
+    h += "<span class='warn'>Not connected to home Wi-Fi</span>";
+  }
+  h += "</div>";
+
+  int n=WiFi.scanNetworks(false,true);
+  h += F("<div class='card'><form method='post' action='/network'>"
+         "<label>Wi-Fi network</label><select name='ssid'>");
+  if(n>0) {
+    for(int i=0;i<n;i++) {
+      String s=WiFi.SSID(i);
+      if(!s.length()) continue;
+      h += "<option value='"+esc(s)+"'>"+esc(s)+" ("+String(WiFi.RSSI(i))+" dBm)</option>";
+    }
+  }
+  h += F("</select><label>Wi-Fi password</label>"
+         "<input name='pass' type='password' autocomplete='new-password'>"
+         "<button type='submit'>Save & Connect</button></form></div>");
+  WiFi.scanDelete();
+
+  h += F("<div class='card'><a class='b' href='/network?forget=1'>Forget saved home Wi-Fi</a></div>");
+  sendHTML(h+back()+foot());
 }
 
 void systemPage() {
@@ -275,7 +390,7 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V2");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V3");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
@@ -284,10 +399,13 @@ void setup(){
 
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID,AP_PASS);
+  connectSavedWiFi();
   BLEDevice::init("S3-Cyberdeck");
 
   server.on("/",root);
   server.on("/system",systemPage);
+  server.on("/network",HTTP_GET,networkPage);
+  server.on("/network",HTTP_POST,networkPage);
   server.on("/wifi",wifiPage);
   server.on("/ble",blePage);
   server.on("/i2c",i2cPage);
@@ -300,6 +418,9 @@ void setup(){
 
   Serial.printf("AP: %s\n",AP_SSID);
   Serial.printf("Password: %s\n",AP_PASS);
-  Serial.print("Open: http://"); Serial.println(WiFi.softAPIP());
+  Serial.print("Fallback AP: http://"); Serial.println(WiFi.softAPIP());
+  if(WiFi.status()==WL_CONNECTED){
+    Serial.print("Home LAN: http://"); Serial.println(WiFi.localIP());
+  }
 }
 void loop(){server.handleClient();delay(2);}
