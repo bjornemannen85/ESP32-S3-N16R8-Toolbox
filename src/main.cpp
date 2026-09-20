@@ -10,7 +10,7 @@
 #include <esp_chip_info.h>
 #include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V3
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4
 // Adds local Wi-Fi setup without storing home credentials in GitHub/source.
 // The fallback AP remains available for configuration and recovery.
 
@@ -21,7 +21,77 @@ static const char *AP_PASS = "cyberdeck123";
 static const char *SETUP_PATH = "/network";
 Preferences prefs;
 String staSsid;
+
 bool staConnected = false;
+
+// ---------- V4 software core ----------
+struct PinClaim { int gpio; const char* owner; bool reserved; };
+PinClaim pinClaims[] = {
+  {19,"Native USB D-",true},{20,"Native USB D+",true},
+  {8,"I2C SDA",true},{9,"I2C SCL",true}
+};
+
+struct ModuleState { const char* id; const char* name; bool enabled; bool present; };
+ModuleState modules[] = {
+  {"display","ILI9488 Display",false,false},{"touch","SPI Touch",false,false},
+  {"cc1101","CC1101 Sub-GHz",false,false},{"pn532","PN532 NFC",false,false},
+  {"nrf24","nRF24L01+",false,false},{"ir","IR TX/RX",false,false},
+  {"ina219","INA219 Power Monitor",false,false},{"rtc","DS3231 RTC",false,false},
+  {"sd","microSD",false,false}
+};
+
+const int LOG_MAX=40;
+String eventLog[LOG_MAX];
+int eventHead=0,eventCount=0;
+
+void logEvent(const String& msg){
+  eventLog[eventHead]="["+String(millis()/1000)+"s] "+msg;
+  eventHead=(eventHead+1)%LOG_MAX;
+  if(eventCount<LOG_MAX) eventCount++;
+  Serial.println("[V4] "+msg);
+}
+
+String moduleSummary(){
+  String r;
+  for(auto &m:modules) r+=String(m.name)+": "+(m.enabled?"ENABLED":"disabled")+" / "+(m.present?"ONLINE":"offline")+"\n";
+  return r;
+}
+String pinSummary(){
+  String r;
+  for(auto &p:pinClaims) r+="GPIO"+String(p.gpio)+" -> "+p.owner+(p.reserved?" [RESERVED]":"")+"\n";
+  return r;
+}
+
+String runAdminCommand(String cmd){
+  cmd.trim(); String lc=cmd; lc.toLowerCase();
+  if(lc=="help") return "Commands: help, status, wifi, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
+  if(lc=="status") return "Cyberdeck V4\nWiFi: "+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"offline")+
+    "\nLAN IP: "+WiFi.localIP().toString()+"\nAP IP: "+WiFi.softAPIP().toString()+
+    "\nHeap: "+String(ESP.getFreeHeap())+"\nPSRAM: "+String(ESP.getFreePsram());
+  if(lc=="wifi") return "STA: "+String(WiFi.status()==WL_CONNECTED?WiFi.SSID():"not connected")+
+    "\nLAN IP: "+WiFi.localIP().toString()+"\nRSSI: "+String(WiFi.status()==WL_CONNECTED?WiFi.RSSI():0)+" dBm";
+  if(lc=="modules") return moduleSummary();
+  if(lc=="pins") return pinSummary();
+  if(lc=="heap") return String(ESP.getFreeHeap())+" bytes";
+  if(lc=="psram") return String(ESP.getFreePsram())+" bytes";
+  if(lc=="uptime") return String(millis()/1000)+" seconds";
+  if(lc=="logs"){
+    String r;
+    for(int i=0;i<eventCount;i++){ int x=(eventHead-eventCount+i+LOG_MAX)%LOG_MAX; r+=eventLog[x]+"\n"; }
+    return r.length()?r:"No events";
+  }
+  if(lc.startsWith("gpio read ")){
+    int pin=lc.substring(10).toInt(); if(pin<0||pin>48) return "Invalid GPIO";
+    pinMode(pin,INPUT); return "GPIO"+String(pin)+"="+String(digitalRead(pin));
+  }
+  if(lc.startsWith("adc read ")){
+    int pin=lc.substring(9).toInt(); if(pin<0||pin>20) return "Invalid ADC GPIO";
+    return "ADC GPIO"+String(pin)+"="+String(analogRead(pin));
+  }
+  if(lc=="reboot"){ logEvent("Admin requested reboot"); return "REBOOT_PENDING"; }
+  return "Unknown command. Type: help";
+}
+
 
 static const int I2C_SDA = 8;
 static const int I2C_SCL = 9;
@@ -55,7 +125,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V3</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V4</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -66,6 +136,11 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
+         "<a class='b' href='/terminal'>Admin Terminal</a>"
+         "<a class='b' href='/diagnostics'>Diagnostics</a>"
+         "<a class='b' href='/modules'>Module Manager</a>"
+         "<a class='b' href='/pins'>Pin Manager</a>"
+         "<a class='b' href='/logs'>Event Log</a>"
          "<a class='b' href='/network'>Network Setup</a>"
          "<a class='b' href='/wifi'>Wi-Fi Survey</a>"
          "<a class='b' href='/ble'>BLE Survey</a>"
@@ -97,6 +172,62 @@ void root() {
   sendHTML(h+foot());
 }
 
+
+
+void terminalPage(){
+  String output,cmd;
+  if(server.method()==HTTP_POST && server.hasArg("cmd")){
+    cmd=server.arg("cmd"); output=runAdminCommand(cmd); logEvent("Terminal command: "+cmd);
+  }
+  String h=head("Admin Terminal");
+  h+=F("<div class='card'><b>Firmware admin console</b><br>This is not Linux root. Type <span class='mono'>help</span>.</div>"
+       "<div class='card'><form method='post' action='/terminal'><input name='cmd' class='mono' autocomplete='off' placeholder='help'><button type='submit'>Run</button></form></div>");
+  if(output.length()){ String s=esc(output); s.replace("\n","<br>"); h+="<div class='card mono'>"+s+"</div>"; }
+  sendHTML(h+back()+foot());
+  if(output=="REBOOT_PENDING"){ delay(750); ESP.restart(); }
+}
+
+void diagnosticsPage(){
+  String h=head("Diagnostics");
+  h+="<div class='card'><b>CPU</b><br>Chip: "+String(ESP.getChipModel())+"<br>Cores: "+String(ESP.getChipCores())+"<br>CPU: "+String(ESP.getCpuFreqMHz())+" MHz</div>";
+  h+="<div class='card'><b>Memory</b><br>Free heap: "+String(ESP.getFreeHeap())+" B<br>Free PSRAM: "+String(ESP.getFreePsram())+" B<br>Flash: "+String(ESP.getFlashChipSize())+" B</div>";
+  h+="<div class='card'><b>Network</b><br>STA: "+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"offline")+"<br>LAN IP: "+WiFi.localIP().toString()+"<br>AP IP: "+WiFi.softAPIP().toString()+"<br>RSSI: "+String(WiFi.status()==WL_CONNECTED?WiFi.RSSI():0)+" dBm</div>";
+  sendHTML(h+back()+foot());
+}
+
+void modulesPage(){
+  if(server.hasArg("toggle")){
+    String id=server.arg("toggle");
+    for(auto &m:modules) if(id==m.id){
+      m.enabled=!m.enabled; prefs.begin("v4mods",false); prefs.putBool(m.id,m.enabled); prefs.end();
+      logEvent(String(m.name)+(m.enabled?" enabled":" disabled"));
+    }
+  }
+  String h=head("Module Manager");
+  h+=F("<div class='card'>Module switches are prepared now; hardware detection activates when modules are connected.</div>");
+  for(auto &m:modules) h+="<div class='card'><b>"+String(m.name)+"</b><br>Software: "+String(m.enabled?"<span class='ok'>ENABLED</span>":"disabled")+"<br>Hardware: "+String(m.present?"<span class='ok'>ONLINE</span>":"offline")+"<br><a class='b' href='/modules?toggle="+String(m.id)+"'>Toggle</a></div>";
+  sendHTML(h+back()+foot());
+}
+
+void pinsPage(){
+  String h=head("Pin Manager");
+  h+=F("<div class='card'>Reserved pins prevent accidental hardware conflicts.</div>");
+  for(auto &p:pinClaims) h+="<div class='card'><b>GPIO"+String(p.gpio)+"</b> &rarr; "+String(p.owner)+(p.reserved?" <span class='warn'>RESERVED</span>":"")+"</div>";
+  sendHTML(h+back()+foot());
+}
+
+void logsPage(){
+  String h=head("Event Log"); h+="<div class='card mono'>";
+  if(!eventCount) h+="No events yet.";
+  for(int i=0;i<eventCount;i++){ int x=(eventHead-eventCount+i+LOG_MAX)%LOG_MAX; h+=esc(eventLog[x])+"<br>"; }
+  h+="</div>"; sendHTML(h+back()+foot());
+}
+
+void loadV4Settings(){
+  prefs.begin("v4mods",true);
+  for(auto &m:modules) m.enabled=prefs.getBool(m.id,false);
+  prefs.end();
+}
 
 void connectSavedWiFi() {
   prefs.begin("net", true);
@@ -390,7 +521,7 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V3");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
@@ -400,12 +531,20 @@ void setup(){
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID,AP_PASS);
   connectSavedWiFi();
+  loadV4Settings();
+  logEvent("Cyberdeck V4 boot");
   BLEDevice::init("S3-Cyberdeck");
 
   server.on("/",root);
   server.on("/system",systemPage);
   server.on("/network",HTTP_GET,networkPage);
   server.on("/network",HTTP_POST,networkPage);
+  server.on("/terminal",HTTP_GET,terminalPage);
+  server.on("/terminal",HTTP_POST,terminalPage);
+  server.on("/diagnostics",diagnosticsPage);
+  server.on("/modules",modulesPage);
+  server.on("/pins",pinsPage);
+  server.on("/logs",logsPage);
   server.on("/wifi",wifiPage);
   server.on("/ble",blePage);
   server.on("/i2c",i2cPage);
