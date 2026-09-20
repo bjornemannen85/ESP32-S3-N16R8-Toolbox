@@ -24,10 +24,19 @@ jobs:
       - name: Build firmware
         run: pio run
 
+      - name: Install esptool
+        run: pip install esptool
+
       - name: Create merged firmware
         run: |
-          pip install esptool
-          python -m esptool --chip esp32s3 merge-bin             -o .pio/build/esp32-s3-n16r8/esp32-s3-toolbox-merged.bin             --flash-mode dio             --flash-freq 40m             --flash-size 16MB             0x0000 .pio/build/esp32-s3-n16r8/bootloader.bin             0x8000 .pio/build/esp32-s3-n16r8/partitions.bin             0x10000 .pio/build/esp32-s3-n16r8/firmware.bin
+          python -m esptool --chip esp32s3 merge-bin \
+            -o .pio/build/esp32-s3-n16r8/esp32-s3-toolbox-v1-merged.bin \
+            --flash-mode dio \
+            --flash-freq 40m \
+            --flash-size 16MB \
+            0x0000 .pio/build/esp32-s3-n16r8/bootloader.bin \
+            0x8000 .pio/build/esp32-s3-n16r8/partitions.bin \
+            0x10000 .pio/build/esp32-s3-n16r8/firmware.bin
 
       - name: Show build files
         run: ls -lh .pio/build/esp32-s3-n16r8/
@@ -35,10 +44,10 @@ jobs:
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: esp32-s3-n16r8-firmware
+          name: esp32-s3-toolbox-v1
           path: |
             .pio/build/esp32-s3-n16r8/bootloader.bin
             .pio/build/esp32-s3-n16r8/partitions.bin
             .pio/build/esp32-s3-n16r8/firmware.bin
-            .pio/build/esp32-s3-n16r8/esp32-s3-toolbox-merged.bin
+            .pio/build/esp32-s3-n16r8/esp32-s3-toolbox-v1-merged.bin
           if-no-files-found: error
