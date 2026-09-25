@@ -99,6 +99,7 @@ bool sendTimedUARTPacket(uint8_t command,
       uartAnalyzerRxPin,
       uartAnalyzerTxPin
   );
+  uartAnalyzerBaud = 4800;
 
   AnalyzerUART.write((uint8_t)0x00);
   AnalyzerUART.write(command);
@@ -181,6 +182,16 @@ String uartAnalyzerPage() {
        "<input name='data' style='width:70%'><button>Send</button></form>";
   h += "<h3>Transmit HEX</h3><form action='/uart/sendhex' method='post'>"
        "<input name='data' placeholder='48 65 6C 6C 6F' style='width:70%'><button>Send HEX</button></form>";
+  h += "<h3>Timed UART Packet</h3>"
+       "<p>Sends one packet at 4800 baud with synchronization pulse and automatic checksum.</p>"
+       "<form action='/uart/timed' method='post'>"
+       "Command: <input name='cmd' value='0' type='number' min='0' max='255'><br>"
+       "A: <input name='a' value='0' type='number' min='0' max='255'><br>"
+       "B: <input name='b' value='0' type='number' min='0' max='255'><br>"
+       "C: <input name='c' value='0' type='number' min='0' max='255'><br>"
+       "D: <input name='d' value='0' type='number' min='0' max='255'><br>"
+       "E: <input name='e' value='0' type='number' min='0' max='255'><br>"
+       "<button type='submit'>Send Timed Packet</button></form>";
   h += "<h3>RX HEX capture</h3><pre style='white-space:pre-wrap'>" + uartCapture + "</pre>";
   h += "<p><a href='/'>Back</a></p></body></html>";
   return h;
@@ -1005,6 +1016,52 @@ void setup(){
     server.sendHeader("Location", "/uart");
     server.send(303);
   });
+  server.on("/uart/timed", HTTP_POST, []() {
+    const char* names[] = {"cmd","a","b","c","d","e"};
+    int values[6];
+
+    for (int i = 0; i < 6; i++) {
+      if (!server.hasArg(names[i])) {
+        server.send(400, "text/plain", "Missing packet field.");
+        return;
+      }
+
+      String v = server.arg(names[i]);
+      if (v.length() == 0) {
+        server.send(400, "text/plain", "Empty packet field.");
+        return;
+      }
+
+      for (size_t j = 0; j < v.length(); j++) {
+        if (!isDigit(v[j])) {
+          server.send(400, "text/plain", "Packet fields must be decimal 0-255.");
+          return;
+        }
+      }
+
+      long n = v.toInt();
+      if (n < 0 || n > 255) {
+        server.send(400, "text/plain", "Packet field outside 0-255.");
+        return;
+      }
+      values[i] = (int)n;
+    }
+
+    if (!sendTimedUARTPacket(
+          (uint8_t)values[0],
+          (uint8_t)values[1],
+          (uint8_t)values[2],
+          (uint8_t)values[3],
+          (uint8_t)values[4],
+          (uint8_t)values[5])) {
+      server.send(400, "text/plain", "UART must be started before sending.");
+      return;
+    }
+
+    server.sendHeader("Location", "/uart");
+    server.send(303);
+  });
+
   server.on("/uart/stop", HTTP_GET, []() {
     stopUARTAnalyzer();
     server.sendHeader("Location", "/uart");
