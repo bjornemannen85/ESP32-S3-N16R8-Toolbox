@@ -2,7 +2,7 @@
 #include <SPI.h>
 #include <SD.h>
 
-// V4.4.1 shared SPI expansion bus.
+// V4.4.2 shared SPI expansion bus.
 // -1 means deliberately unassigned until final display/board pinout is confirmed.
 static int V42_SPI_SCK=-1, V42_SPI_MISO=-1, V42_SPI_MOSI=-1;
 static int V42_SD_CS=-1;
@@ -22,14 +22,14 @@ bool v42CcOK(){return v42SpiOK()&&V42_CC1101_CS>=0;}
 #include <esp_chip_info.h>
 #include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.4.1
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.4.2
 // Adds local Wi-Fi setup without storing home credentials in GitHub/source.
 // The fallback AP remains available for configuration and recovery.
 
 
 WebServer server(80);
 
-// V4.4.1.1 UART Lab - RX/TX diagnostic interface.
+// V4.4.2.1 UART Lab - RX/TX diagnostic interface.
 // Generic serial TX is available for equipment you own/are authorized to service.
 HardwareSerial AnalyzerUART(1);
 bool uartAnalyzerRunning = false;
@@ -113,7 +113,7 @@ void pollUARTAnalyzer() {
 String uartAnalyzerPage() {
   String h = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
              "<meta http-equiv='refresh' content='3'></head><body>"
-             "<h2>V4.4.1 UART Lab</h2>"
+             "<h2>V4.4.2 UART Lab</h2>"
              "<p>Generic RX/TX serial diagnostic interface.</p>";
   h += "<p>Status: " + String(uartAnalyzerRunning ? "RUNNING" : "STOPPED") + "</p>";
   h += "<p>RX GPIO: " + String(uartAnalyzerRxPin) + " | TX GPIO: " + String(uartAnalyzerTxPin) +
@@ -180,7 +180,7 @@ String pinSummary(){
   return r;
 }
 
-// Forward declarations for V4.4.1
+// Forward declarations for V4.4.2
 String v42SpiInfo();
 bool v41ReservedPin(int pin);
 bool loadSavedNetwork(String &ssid, String &pass);
@@ -188,7 +188,46 @@ bool saveNetworkPermanent(const String &ssid, const String &pass);
 
 String runAdminCommand(String cmd){
   cmd.trim(); String lc=cmd; lc.toLowerCase();
-  if(lc=="help") return "Commands: help, status, wifi, wifi saved, scan wifi, scan ble, i2c scan, i2c modules, storage, spi, cc1101, log status, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
+  if(lc=="help") return "Commands: help, status, wifi, wifi saved, uart status, uart start <rx> <tx> <baud>, uart stop, uart tx <text>, uart txhex <hex>, uart rx, uart clear, scan wifi, scan ble, i2c scan, i2c modules, storage, spi, cc1101, log status, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
+  if(lc=="uart status"){
+    return "UART: "+String(uartAnalyzerRunning?"RUNNING":"STOPPED")+
+           " | RX="+String(uartAnalyzerRxPin)+
+           " | TX="+String(uartAnalyzerTxPin)+
+           " | baud="+String(uartAnalyzerBaud);
+  }
+  if(lc.startsWith("uart start ")){
+    int rx=-1, tx=-1;
+    unsigned long baud=0;
+    if(sscanf(cmd.c_str(), "uart start %d %d %lu", &rx, &tx, &baud)==3) {
+      return startUARTAnalyzer(rx, tx, baud)
+        ? "UART started: RX="+String(rx)+" TX="+String(tx)+" baud="+String(baud)
+        : "ERROR: invalid/reserved pins or unsupported baud";
+    }
+    return "Usage: uart start <rx> <tx> <baud>";
+  }
+  if(lc=="uart stop"){
+    stopUARTAnalyzer();
+    return "UART stopped";
+  }
+  if(lc=="uart clear"){
+    uartCapture="";
+    return "UART capture cleared";
+  }
+  if(lc.startsWith("uart txhex ")){
+    String data=cmd.substring(11);
+    data.trim();
+    return uartSendHex(data) ? "UART HEX sent" : "ERROR: UART not running or invalid HEX";
+  }
+  if(lc.startsWith("uart tx ")){
+    String data=cmd.substring(8);
+    return uartSendText(data) ? "UART text sent" : "ERROR: UART not running or empty data";
+  }
+  if(lc=="uart rx"){
+    if(!uartCapture.length()) return "UART RX capture is empty";
+    String tail=uartCapture;
+    if(tail.length()>1200) tail=tail.substring(tail.length()-1200);
+    return tail;
+  }
   if(lc=="status") return "Cyberdeck V4\nWiFi: "+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"offline")+
     "\nLAN IP: "+WiFi.localIP().toString()+"\nAP IP: "+WiFi.softAPIP().toString()+
     "\nHeap: "+String(ESP.getFreeHeap())+"\nPSRAM: "+String(ESP.getFreePsram());
@@ -287,7 +326,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V4.4.1</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V4.4.2</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -298,7 +337,7 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
-         "<a class='b' href='/v43-modules'>V4.4.1 Module Status</a>"
+         "<a class='b' href='/v43-modules'>V4.4.2 Module Status</a>"
          "<a class='b' href='/storage'>Storage Manager</a>"
          "<a class='b' href='/cc1101'>CC1101 RF</a>"
          "<a class='b' href='/wifi-analyzer'>WiFi Analyzer</a>"
@@ -366,7 +405,7 @@ void storagePage(){
 }
 
 void v43ModulesPage(){
-  String h=head("V4.4.1 Module Status");
+  String h=head("V4.4.2 Module Status");
   h+=F("<div class='card'><b>I2C bus</b><br>SDA GPIO8 / SCL GPIO9<br>Prepared: DS3231, INA219 and PN532 integration.</div>");
   h+="<div class='card'><b>SPI bus</b><br>"+esc(v42SpiInfo())+
      "<br>Prepared: CC1101 + microSD with independent CS pins.</div>";
@@ -840,7 +879,7 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.4.1");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.4.2");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
