@@ -31,6 +31,8 @@ WebServer server(80);
 
 // V4.4.2.1 UART Lab - RX/TX diagnostic interface.
 // Generic serial TX is available for equipment you own/are authorized to service.
+void logEvent(const String& msg);
+
 HardwareSerial AnalyzerUART(1);
 bool uartAnalyzerRunning = false;
 int uartAnalyzerRxPin = -1;
