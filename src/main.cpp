@@ -2,7 +2,7 @@
 #include <SPI.h>
 #include <SD.h>
 
-// V4.3 shared SPI expansion bus.
+// V4.3.1 shared SPI expansion bus.
 // -1 means deliberately unassigned until final display/board pinout is confirmed.
 static int V42_SPI_SCK=-1, V42_SPI_MISO=-1, V42_SPI_MOSI=-1;
 static int V42_SD_CS=-1;
@@ -22,7 +22,7 @@ bool v42CcOK(){return v42SpiOK()&&V42_CC1101_CS>=0;}
 #include <esp_chip_info.h>
 #include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.3
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.3.1
 // Adds local Wi-Fi setup without storing home credentials in GitHub/source.
 // The fallback AP remains available for configuration and recovery.
 
@@ -74,16 +74,23 @@ String pinSummary(){
   return r;
 }
 
-// Forward declarations for V4.3
+// Forward declarations for V4.3.1
 String v42SpiInfo();
 bool v41ReservedPin(int pin);
+bool loadSavedNetwork(String &ssid, String &pass);
+bool saveNetworkPermanent(const String &ssid, const String &pass);
 
 String runAdminCommand(String cmd){
   cmd.trim(); String lc=cmd; lc.toLowerCase();
-  if(lc=="help") return "Commands: help, status, wifi, scan wifi, scan ble, i2c scan, i2c modules, storage, spi, cc1101, log status, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
+  if(lc=="help") return "Commands: help, status, wifi, wifi saved, scan wifi, scan ble, i2c scan, i2c modules, storage, spi, cc1101, log status, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
   if(lc=="status") return "Cyberdeck V4\nWiFi: "+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"offline")+
     "\nLAN IP: "+WiFi.localIP().toString()+"\nAP IP: "+WiFi.softAPIP().toString()+
     "\nHeap: "+String(ESP.getFreeHeap())+"\nPSRAM: "+String(ESP.getFreePsram());
+  if(lc=="wifi saved"){
+    String ss, pw; bool ok=loadSavedNetwork(ss,pw);
+    return ok ? "Saved WiFi in NVS: "+ss+" | password stored: "+String(pw.length()?"yes":"no")
+              : "No saved WiFi credentials in NVS";
+  }
   if(lc=="wifi") return "STA: "+String(WiFi.status()==WL_CONNECTED?WiFi.SSID():"not connected")+
     "\nLAN IP: "+WiFi.localIP().toString()+"\nRSSI: "+String(WiFi.status()==WL_CONNECTED?WiFi.RSSI():0)+" dBm";
   if(lc=="spi") return v42SpiInfo();
@@ -174,7 +181,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V4.3</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V4.3.1</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -185,7 +192,7 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
-         "<a class='b' href='/v43-modules'>V4.3 Module Status</a>"
+         "<a class='b' href='/v43-modules'>V4.3.1 Module Status</a>"
          "<a class='b' href='/storage'>Storage Manager</a>"
          "<a class='b' href='/cc1101'>CC1101 RF</a>"
          "<a class='b' href='/wifi-analyzer'>WiFi Analyzer</a>"
@@ -253,7 +260,7 @@ void storagePage(){
 }
 
 void v43ModulesPage(){
-  String h=head("V4.3 Module Status");
+  String h=head("V4.3.1 Module Status");
   h+=F("<div class='card'><b>I2C bus</b><br>SDA GPIO8 / SCL GPIO9<br>Prepared: DS3231, INA219 and PN532 integration.</div>");
   h+="<div class='card'><b>SPI bus</b><br>"+esc(v42SpiInfo())+
      "<br>Prepared: CC1101 + microSD with independent CS pins.</div>";
@@ -389,13 +396,55 @@ void loadV4Settings(){
   prefs.end();
 }
 
-void connectSavedWiFi() {
-  prefs.begin("net", true);
-  staSsid = prefs.getString("ssid", "");
-  String pass = prefs.getString("pass", "");
-  prefs.end();
+bool loadSavedNetwork(String &ssid, String &pass) {
+  Preferences net;
+  if(!net.begin("cybernet", true)) return false;
+  ssid = net.getString("ssid", "");
+  pass = net.getString("pass", "");
+  uint32_t magic = net.getUInt("magic", 0);
+  net.end();
 
-  if(!staSsid.length()) return;
+  // One-time migration from the older V3/V4 namespace.
+  if(ssid.length()==0 || magic!=0x43594252UL) {
+    Preferences legacy;
+    if(legacy.begin("net", true)) {
+      String oldSsid = legacy.getString("ssid", "");
+      String oldPass = legacy.getString("pass", "");
+      legacy.end();
+      if(oldSsid.length()) {
+        Preferences dst;
+        if(dst.begin("cybernet", false)) {
+          dst.putString("ssid", oldSsid);
+          dst.putString("pass", oldPass);
+          dst.putUInt("magic", 0x43594252UL);
+          dst.end();
+          ssid=oldSsid; pass=oldPass;
+        }
+      }
+    }
+  }
+  return ssid.length()>0;
+}
+
+bool saveNetworkPermanent(const String &ssid, const String &pass) {
+  Preferences net;
+  if(!net.begin("cybernet", false)) return false;
+  size_t a=net.putString("ssid", ssid);
+  size_t b=net.putString("pass", pass);
+  size_t c=net.putUInt("magic", 0x43594252UL);
+  net.end();
+
+  String verifySsid, verifyPass;
+  bool ok=loadSavedNetwork(verifySsid, verifyPass);
+  return ok && a>0 && b>0 && c>0 && verifySsid==ssid && verifyPass==pass;
+}
+
+void connectSavedWiFi() {
+  String pass;
+  if(!loadSavedNetwork(staSsid, pass)) {
+    Serial.println("No saved home Wi-Fi in NVS.");
+    return;
+  }
 
   Serial.printf("Connecting to Wi-Fi: %s\n", staSsid.c_str());
   WiFi.begin(staSsid.c_str(), pass.c_str());
@@ -422,10 +471,13 @@ void networkPage() {
     ssid.trim();
 
     if(ssid.length()) {
-      prefs.begin("net", false);
-      prefs.putString("ssid", ssid);
-      prefs.putString("pass", pass);
-      prefs.end();
+      bool savedOK = saveNetworkPermanent(ssid, pass);
+      if(!savedOK) {
+        msg = "ERROR: Could not verify Wi-Fi credentials in NVS.";
+        logEvent("WiFi NVS save verification FAILED");
+      } else {
+        logEvent("WiFi credentials saved and verified in NVS");
+      }
 
       WiFi.disconnect(false, false);
       delay(200);
@@ -446,9 +498,10 @@ void networkPage() {
   }
 
   if(server.hasArg("forget") && server.arg("forget")=="1") {
-    prefs.begin("net", false);
-    prefs.clear();
-    prefs.end();
+    Preferences net;
+    if(net.begin("cybernet", false)) { net.clear(); net.end(); }
+    Preferences legacy;
+    if(legacy.begin("net", false)) { legacy.clear(); legacy.end(); }
     WiFi.disconnect(true, false);
     staSsid = "";
     staConnected = false;
@@ -681,7 +734,7 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.3");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.3.1");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
