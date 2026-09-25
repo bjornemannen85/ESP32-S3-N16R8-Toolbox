@@ -2,7 +2,7 @@
 #include <SPI.h>
 #include <SD.h>
 
-// V4.3.1 shared SPI expansion bus.
+// V4.4.1 shared SPI expansion bus.
 // -1 means deliberately unassigned until final display/board pinout is confirmed.
 static int V42_SPI_SCK=-1, V42_SPI_MISO=-1, V42_SPI_MOSI=-1;
 static int V42_SD_CS=-1;
@@ -22,11 +22,117 @@ bool v42CcOK(){return v42SpiOK()&&V42_CC1101_CS>=0;}
 #include <esp_chip_info.h>
 #include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.3.1
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.4.1
 // Adds local Wi-Fi setup without storing home credentials in GitHub/source.
 // The fallback AP remains available for configuration and recovery.
 
+
 WebServer server(80);
+
+// V4.4.1.1 UART Lab - RX/TX diagnostic interface.
+// Generic serial TX is available for equipment you own/are authorized to service.
+HardwareSerial AnalyzerUART(1);
+bool uartAnalyzerRunning = false;
+int uartAnalyzerRxPin = -1;
+int uartAnalyzerTxPin = -1;
+uint32_t uartAnalyzerBaud = 4800;
+String uartCapture = "";
+const size_t UART_CAPTURE_MAX = 8192;
+
+bool uartAnalyzerPinAllowed(int pin) {
+  // Keep native USB and the shared I2C bus protected.
+  if (pin < 0 || pin > 48) return false;
+  if (pin == 8 || pin == 9 || pin == 19 || pin == 20) return false;
+  return true;
+}
+
+bool startUARTAnalyzer(int rxPin, int txPin, uint32_t baud) {
+  if (!uartAnalyzerPinAllowed(rxPin) || !uartAnalyzerPinAllowed(txPin) || rxPin == txPin) return false;
+  if (!(baud==1200 || baud==2400 || baud==4800 || baud==9600 ||
+        baud==19200 || baud==38400 || baud==57600 || baud==115200)) return false;
+
+  if (uartAnalyzerRunning) AnalyzerUART.end();
+  AnalyzerUART.begin(baud, SERIAL_8N1, rxPin, txPin);
+  uartAnalyzerRxPin = rxPin;
+  uartAnalyzerTxPin = txPin;
+  uartAnalyzerBaud = baud;
+  uartAnalyzerRunning = true;
+
+  Preferences u;
+  if (u.begin("uartcfg", false)) {
+    u.putInt("rx", rxPin);
+    u.putInt("tx", txPin);
+    u.putULong("baud", baud);
+    u.end();
+  }
+  return true;
+}
+
+bool uartSendHex(String input) {
+  if (!uartAnalyzerRunning) return false;
+  input.replace(" ", "");
+  input.replace(":", "");
+  input.replace("-", "");
+  if (input.length()==0 || (input.length() & 1)) return false;
+  for (size_t i=0; i<input.length(); i+=2) {
+    char a=input[i], b=input[i+1];
+    if (!isxdigit((unsigned char)a) || !isxdigit((unsigned char)b)) return false;
+  }
+  for (size_t i=0; i<input.length(); i+=2) {
+    char tmp[3] = { input[i], input[i+1], 0 };
+    AnalyzerUART.write((uint8_t)strtoul(tmp, nullptr, 16));
+  }
+  AnalyzerUART.flush();
+  return true;
+}
+
+bool uartSendText(const String &data) {
+  if (!uartAnalyzerRunning || data.length()==0) return false;
+  AnalyzerUART.print(data);
+  AnalyzerUART.flush();
+  return true;
+}
+
+void stopUARTAnalyzer() {
+  if (uartAnalyzerRunning) AnalyzerUART.end();
+  uartAnalyzerRunning = false;
+}
+
+void pollUARTAnalyzer() {
+  if (!uartAnalyzerRunning) return;
+  while (AnalyzerUART.available()) {
+    uint8_t b = (uint8_t)AnalyzerUART.read();
+    char h[4];
+    snprintf(h, sizeof(h), "%02X ", b);
+    uartCapture += h;
+    if (uartCapture.length() > UART_CAPTURE_MAX)
+      uartCapture.remove(0, uartCapture.length() - UART_CAPTURE_MAX);
+  }
+}
+
+String uartAnalyzerPage() {
+  String h = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'>"
+             "<meta http-equiv='refresh' content='3'></head><body>"
+             "<h2>V4.4.1 UART Lab</h2>"
+             "<p>Generic RX/TX serial diagnostic interface.</p>";
+  h += "<p>Status: " + String(uartAnalyzerRunning ? "RUNNING" : "STOPPED") + "</p>";
+  h += "<p>RX GPIO: " + String(uartAnalyzerRxPin) + " | TX GPIO: " + String(uartAnalyzerTxPin) +
+       " | Baud: " + String(uartAnalyzerBaud) + "</p>";
+  h += "<form action='/uart/start' method='get'>RX: <input name='rx' type='number' size='3'> "
+       "TX: <input name='tx' type='number' size='3'> Baud: <select name='baud'>"
+       "<option>1200</option><option>2400</option><option selected>4800</option>"
+       "<option>9600</option><option>19200</option><option>38400</option>"
+       "<option>57600</option><option>115200</option></select> <button>Start</button></form>";
+  h += "<p><a href='/uart/stop'>Stop</a> | <a href='/uart/clear'>Clear capture</a></p>";
+  h += "<h3>Transmit text</h3><form action='/uart/sendtext' method='post'>"
+       "<input name='data' style='width:70%'><button>Send</button></form>";
+  h += "<h3>Transmit HEX</h3><form action='/uart/sendhex' method='post'>"
+       "<input name='data' placeholder='48 65 6C 6C 6F' style='width:70%'><button>Send HEX</button></form>";
+  h += "<h3>RX HEX capture</h3><pre style='white-space:pre-wrap'>" + uartCapture + "</pre>";
+  h += "<p><a href='/'>Back</a></p></body></html>";
+  return h;
+}
+
 
 static const char *AP_SSID = "S3-Cyberdeck";
 static const char *AP_PASS = "cyberdeck123";
@@ -74,7 +180,7 @@ String pinSummary(){
   return r;
 }
 
-// Forward declarations for V4.3.1
+// Forward declarations for V4.4.1
 String v42SpiInfo();
 bool v41ReservedPin(int pin);
 bool loadSavedNetwork(String &ssid, String &pass);
@@ -181,7 +287,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V4.3.1</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V4.4.1</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -192,7 +298,7 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
-         "<a class='b' href='/v43-modules'>V4.3.1 Module Status</a>"
+         "<a class='b' href='/v43-modules'>V4.4.1 Module Status</a>"
          "<a class='b' href='/storage'>Storage Manager</a>"
          "<a class='b' href='/cc1101'>CC1101 RF</a>"
          "<a class='b' href='/wifi-analyzer'>WiFi Analyzer</a>"
@@ -260,7 +366,7 @@ void storagePage(){
 }
 
 void v43ModulesPage(){
-  String h=head("V4.3.1 Module Status");
+  String h=head("V4.4.1 Module Status");
   h+=F("<div class='card'><b>I2C bus</b><br>SDA GPIO8 / SCL GPIO9<br>Prepared: DS3231, INA219 and PN532 integration.</div>");
   h+="<div class='card'><b>SPI bus</b><br>"+esc(v42SpiInfo())+
      "<br>Prepared: CC1101 + microSD with independent CS pins.</div>";
@@ -734,7 +840,7 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.3.1");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.4.1");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
@@ -775,6 +881,48 @@ void setup(){
   server.on("/pwm",pwmPage);
   server.on("/expansion",expansionPage);
   server.onNotFound([](){server.send(404,"text/plain","404");});
+  
+  server.on("/uart", HTTP_GET, []() {
+    server.send(200, "text/html", uartAnalyzerPage());
+  });
+  server.on("/uart/start", HTTP_GET, []() {
+    int rx = server.hasArg("rx") ? server.arg("rx").toInt() : -1;
+    int tx = server.hasArg("tx") ? server.arg("tx").toInt() : -1;
+    uint32_t baud = server.hasArg("baud") ? (uint32_t)server.arg("baud").toInt() : 4800;
+    if (!startUARTAnalyzer(rx, tx, baud)) {
+      server.send(400, "text/plain", "Invalid/reserved RX/TX pins or unsupported baud rate.");
+      return;
+    }
+    server.sendHeader("Location", "/uart");
+    server.send(303);
+  });
+  server.on("/uart/sendtext", HTTP_POST, []() {
+    if (!server.hasArg("data") || !uartSendText(server.arg("data"))) {
+      server.send(400, "text/plain", "UART not running or empty data.");
+      return;
+    }
+    server.sendHeader("Location", "/uart");
+    server.send(303);
+  });
+  server.on("/uart/sendhex", HTTP_POST, []() {
+    if (!server.hasArg("data") || !uartSendHex(server.arg("data"))) {
+      server.send(400, "text/plain", "UART not running or invalid HEX.");
+      return;
+    }
+    server.sendHeader("Location", "/uart");
+    server.send(303);
+  });
+  server.on("/uart/stop", HTTP_GET, []() {
+    stopUARTAnalyzer();
+    server.sendHeader("Location", "/uart");
+    server.send(303);
+  });
+  server.on("/uart/clear", HTTP_GET, []() {
+    uartCapture = "";
+    server.sendHeader("Location", "/uart");
+    server.send(303);
+  });
+
   server.begin();
 
   Serial.printf("AP: %s\n",AP_SSID);
@@ -784,4 +932,5 @@ void setup(){
     Serial.print("Home LAN: http://"); Serial.println(WiFi.localIP());
   }
 }
-void loop(){server.handleClient();delay(2);}
+void loop(){server.handleClient();
+  pollUARTAnalyzer();delay(2);}
