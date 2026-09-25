@@ -2,7 +2,7 @@
 #include <SPI.h>
 #include <SD.h>
 
-// V4.2 shared SPI expansion bus.
+// V4.3 shared SPI expansion bus.
 // -1 means deliberately unassigned until final display/board pinout is confirmed.
 static int V42_SPI_SCK=-1, V42_SPI_MISO=-1, V42_SPI_MOSI=-1;
 static int V42_SD_CS=-1;
@@ -22,7 +22,7 @@ bool v42CcOK(){return v42SpiOK()&&V42_CC1101_CS>=0;}
 #include <esp_chip_info.h>
 #include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.2
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.3
 // Adds local Wi-Fi setup without storing home credentials in GitHub/source.
 // The fallback AP remains available for configuration and recovery.
 
@@ -74,13 +74,13 @@ String pinSummary(){
   return r;
 }
 
-// Forward declarations for V4.2
+// Forward declarations for V4.3
 String v42SpiInfo();
 bool v41ReservedPin(int pin);
 
 String runAdminCommand(String cmd){
   cmd.trim(); String lc=cmd; lc.toLowerCase();
-  if(lc=="help") return "Commands: help, status, wifi, scan wifi, scan ble, i2c scan, storage, spi, cc1101, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
+  if(lc=="help") return "Commands: help, status, wifi, scan wifi, scan ble, i2c scan, i2c modules, storage, spi, cc1101, log status, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
   if(lc=="status") return "Cyberdeck V4\nWiFi: "+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"offline")+
     "\nLAN IP: "+WiFi.localIP().toString()+"\nAP IP: "+WiFi.softAPIP().toString()+
     "\nHeap: "+String(ESP.getFreeHeap())+"\nPSRAM: "+String(ESP.getFreePsram());
@@ -88,6 +88,7 @@ String runAdminCommand(String cmd){
     "\nLAN IP: "+WiFi.localIP().toString()+"\nRSSI: "+String(WiFi.status()==WL_CONNECTED?WiFi.RSSI():0)+" dBm";
   if(lc=="spi") return v42SpiInfo();
   if(lc=="storage") return v42SdOK() ? "microSD SPI pins assigned" : "microSD pins pending final hardware pinout";
+  if(lc=="log status") return v42SdOK() ? "SD logging bus configured" : "SD logging pending final SPI/CS pinout";
   if(lc=="cc1101") return v42CcOK() ? "CC1101 SPI pins assigned; init pending module verification" : "CC1101 pins pending final hardware pinout";
   if(lc=="scan wifi"){
     int n=WiFi.scanNetworks(false,true); String r="WiFi: "+String(n)+" network(s)\n";
@@ -99,6 +100,20 @@ String runAdminCommand(String cmd){
     String r="BLE: "+String(rr.getCount())+" device(s)\n";
     for(int i=0;i<rr.getCount();i++){BLEAdvertisedDevice d=rr.getDevice(i);r+=String(d.getAddress().toString().c_str())+" | "+String(d.getRSSI())+" dBm\n";}
     sc->clearResults(); return r;
+  }
+  if(lc=="i2c modules"){
+    String r="I2C module inventory\n"; int n=0;
+    for(uint8_t a=1;a<127;a++){
+      Wire.beginTransmission(a);
+      if(Wire.endTransmission()==0){
+        n++; r+="0x"; if(a<16) r+="0"; r+=String(a,HEX);
+        if(a==0x68) r+=" | RTC candidate (DS3231)";
+        else if(a==0x40 || a==0x41 || a==0x44 || a==0x45) r+=" | INA219/INA2xx candidate";
+        else if(a>=0x50 && a<=0x57) r+=" | EEPROM candidate";
+        r+="\n";
+      }
+    }
+    return "Detected "+String(n)+" I2C device(s)\n"+r;
   }
   if(lc=="i2c scan"){
     String r; int n=0; for(uint8_t a=1;a<127;a++){Wire.beginTransmission(a);if(Wire.endTransmission()==0){n++;r+="0x";if(a<16)r+="0";r+=String(a,HEX)+"\n";}}
@@ -159,7 +174,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V4.2</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V4.3</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -170,6 +185,7 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
+         "<a class='b' href='/v43-modules'>V4.3 Module Status</a>"
          "<a class='b' href='/storage'>Storage Manager</a>"
          "<a class='b' href='/cc1101'>CC1101 RF</a>"
          "<a class='b' href='/wifi-analyzer'>WiFi Analyzer</a>"
@@ -235,9 +251,19 @@ void storagePage(){
   }
   sendHTML(h+back()+foot());
 }
+
+void v43ModulesPage(){
+  String h=head("V4.3 Module Status");
+  h+=F("<div class='card'><b>I2C bus</b><br>SDA GPIO8 / SCL GPIO9<br>Prepared: DS3231, INA219 and PN532 integration.</div>");
+  h+="<div class='card'><b>SPI bus</b><br>"+esc(v42SpiInfo())+
+     "<br>Prepared: CC1101 + microSD with independent CS pins.</div>";
+  h+=F("<div class='card'><b>Safety</b><br>Hardware-dependent SPI/CC1101 pins remain disabled until the final board/display pinout is confirmed.</div>");
+  sendHTML(h+back()+foot());
+}
+
 void cc1101Page(){
   String h=head("CC1101 RF");
-  h+=F("<div class='card'>CC1101 expansion slot prepared for passive Sub-GHz diagnostics, RSSI measurements and signal logging.</div>");
+  h+=F("<div class='card'>CC1101 expansion slot prepared for passive Sub-GHz diagnostics, RSSI measurements, module detection and SD signal logging.</div>");
   h+="<div class='card'>"+esc(v42SpiInfo())+"<br>CS: "+String(V42_CC1101_CS)+
      "<br>GDO0: "+String(V42_CC1101_GDO0)+"<br>GDO2: "+String(V42_CC1101_GDO2)+"</div>";
   if(!v42CcOK()) h+=F("<div class='card'>GPIO assignment pending final hardware pinout.</div>");
@@ -655,7 +681,7 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.2");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.3");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
@@ -674,6 +700,7 @@ void setup(){
   server.on("/system",systemPage);
   server.on("/network",HTTP_GET,networkPage);
   server.on("/network",HTTP_POST,networkPage);
+  server.on("/v43-modules",v43ModulesPage);
   server.on("/storage",storagePage);
   server.on("/cc1101",cc1101Page);
   server.on("/wifi-analyzer",wifiAnalyzerPage);
