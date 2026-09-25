@@ -74,6 +74,10 @@ String pinSummary(){
   return r;
 }
 
+// Forward declarations for V4.2
+String v42SpiInfo();
+bool v41ReservedPin(int pin);
+
 String runAdminCommand(String cmd){
   cmd.trim(); String lc=cmd; lc.toLowerCase();
   if(lc=="help") return "Commands: help, status, wifi, scan wifi, scan ble, i2c scan, storage, spi, cc1101, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
