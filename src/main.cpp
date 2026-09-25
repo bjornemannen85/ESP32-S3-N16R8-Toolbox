@@ -68,6 +68,57 @@ bool startUARTAnalyzer(int rxPin, int txPin, uint32_t baud) {
   return true;
 }
 
+
+bool sendTimedUARTPacket(uint8_t command,
+                         uint8_t a, uint8_t b, uint8_t c,
+                         uint8_t d, uint8_t e) {
+  if (!uartAnalyzerRunning || uartAnalyzerTxPin < 0)
+    return false;
+
+  uint8_t checksum =
+      (uint8_t)(command + a + b + c + d + e);
+
+  // Temporarily release UART so TX GPIO can generate
+  // the required LOW/HIGH synchronization pulse.
+  AnalyzerUART.flush();
+  AnalyzerUART.end();
+
+  pinMode(uartAnalyzerTxPin, OUTPUT);
+  digitalWrite(uartAnalyzerTxPin, LOW);
+  delayMicroseconds(2750);
+
+  digitalWrite(uartAnalyzerTxPin, HIGH);
+  delayMicroseconds(200);
+
+  // Restore UART at 4800 baud / 8N1.
+  AnalyzerUART.begin(
+      4800,
+      SERIAL_8N1,
+      uartAnalyzerRxPin,
+      uartAnalyzerTxPin
+  );
+
+  AnalyzerUART.write((uint8_t)0x00);
+  AnalyzerUART.write(command);
+  AnalyzerUART.write(a);
+  AnalyzerUART.write(b);
+  AnalyzerUART.write(c);
+  AnalyzerUART.write(d);
+  AnalyzerUART.write(e);
+  AnalyzerUART.write(checksum);
+
+  AnalyzerUART.flush();
+
+  logEvent(
+      "Timed UART packet sent: command=0x" +
+      String(command, HEX) +
+      " checksum=0x" +
+      String(checksum, HEX)
+  );
+
+  return true;
+}
+
 bool uartSendHex(String input) {
   if (!uartAnalyzerRunning) return false;
   input.replace(" ", "");
@@ -346,6 +397,7 @@ void root() {
          "<a class='b' href='/gpio-lab'>GPIO Lab</a>"
          "<a class='b' href='/monitor'>System Monitor</a>"
          "<a class='b' href='/terminal'>Admin Terminal</a>"
+         "<a class='b' href='/uart'>UART Lab</a>"
          "<a class='b' href='/diagnostics'>Diagnostics</a>"
          "<a class='b' href='/modules'>Module Manager</a>"
          "<a class='b' href='/pins'>Pin Manager</a>"
