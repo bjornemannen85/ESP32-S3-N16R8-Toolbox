@@ -1,4 +1,16 @@
 #include <Arduino.h>
+#include <SPI.h>
+#include <SD.h>
+
+// V4.2 shared SPI expansion bus.
+// -1 means deliberately unassigned until final display/board pinout is confirmed.
+static int V42_SPI_SCK=-1, V42_SPI_MISO=-1, V42_SPI_MOSI=-1;
+static int V42_SD_CS=-1;
+static int V42_CC1101_CS=-1, V42_CC1101_GDO0=-1, V42_CC1101_GDO2=-1;
+bool v42SpiOK(){return V42_SPI_SCK>=0&&V42_SPI_MISO>=0&&V42_SPI_MOSI>=0;}
+bool v42SdOK(){return v42SpiOK()&&V42_SD_CS>=0;}
+bool v42CcOK(){return v42SpiOK()&&V42_CC1101_CS>=0;}
+
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Wire.h>
@@ -10,7 +22,7 @@
 #include <esp_chip_info.h>
 #include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.2
 // Adds local Wi-Fi setup without storing home credentials in GitHub/source.
 // The fallback AP remains available for configuration and recovery.
 
@@ -64,12 +76,30 @@ String pinSummary(){
 
 String runAdminCommand(String cmd){
   cmd.trim(); String lc=cmd; lc.toLowerCase();
-  if(lc=="help") return "Commands: help, status, wifi, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
+  if(lc=="help") return "Commands: help, status, wifi, scan wifi, scan ble, i2c scan, storage, spi, cc1101, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
   if(lc=="status") return "Cyberdeck V4\nWiFi: "+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"offline")+
     "\nLAN IP: "+WiFi.localIP().toString()+"\nAP IP: "+WiFi.softAPIP().toString()+
     "\nHeap: "+String(ESP.getFreeHeap())+"\nPSRAM: "+String(ESP.getFreePsram());
   if(lc=="wifi") return "STA: "+String(WiFi.status()==WL_CONNECTED?WiFi.SSID():"not connected")+
     "\nLAN IP: "+WiFi.localIP().toString()+"\nRSSI: "+String(WiFi.status()==WL_CONNECTED?WiFi.RSSI():0)+" dBm";
+  if(lc=="spi") return v42SpiInfo();
+  if(lc=="storage") return v42SdOK() ? "microSD SPI pins assigned" : "microSD pins pending final hardware pinout";
+  if(lc=="cc1101") return v42CcOK() ? "CC1101 SPI pins assigned; init pending module verification" : "CC1101 pins pending final hardware pinout";
+  if(lc=="scan wifi"){
+    int n=WiFi.scanNetworks(false,true); String r="WiFi: "+String(n)+" network(s)\n";
+    for(int i=0;i<n;i++)r+=WiFi.SSID(i)+" | "+String(WiFi.RSSI(i))+" dBm | ch "+String(WiFi.channel(i))+"\n";
+    WiFi.scanDelete(); return r;
+  }
+  if(lc=="scan ble"){
+    BLEScan* sc=BLEDevice::getScan(); sc->setActiveScan(false); BLEScanResults rr=sc->start(4,false);
+    String r="BLE: "+String(rr.getCount())+" device(s)\n";
+    for(int i=0;i<rr.getCount();i++){BLEAdvertisedDevice d=rr.getDevice(i);r+=String(d.getAddress().toString().c_str())+" | "+String(d.getRSSI())+" dBm\n";}
+    sc->clearResults(); return r;
+  }
+  if(lc=="i2c scan"){
+    String r; int n=0; for(uint8_t a=1;a<127;a++){Wire.beginTransmission(a);if(Wire.endTransmission()==0){n++;r+="0x";if(a<16)r+="0";r+=String(a,HEX)+"\n";}}
+    return "I2C: "+String(n)+" device(s)\n"+r;
+  }
   if(lc=="modules") return moduleSummary();
   if(lc=="pins") return pinSummary();
   if(lc=="heap") return String(ESP.getFreeHeap())+" bytes";
@@ -81,7 +111,7 @@ String runAdminCommand(String cmd){
     return r.length()?r:"No events";
   }
   if(lc.startsWith("gpio read ")){
-    int pin=lc.substring(10).toInt(); if(pin<0||pin>48) return "Invalid GPIO";
+    int pin=lc.substring(10).toInt(); if(pin<0||pin>48) return "Invalid GPIO"; if(v41ReservedPin(pin)) return "GPIO reserved by Pin Manager";
     pinMode(pin,INPUT); return "GPIO"+String(pin)+"="+String(digitalRead(pin));
   }
   if(lc.startsWith("adc read ")){
@@ -125,7 +155,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V4</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V4.2</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -136,6 +166,13 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
+         "<a class='b' href='/storage'>Storage Manager</a>"
+         "<a class='b' href='/cc1101'>CC1101 RF</a>"
+         "<a class='b' href='/wifi-analyzer'>WiFi Analyzer</a>"
+         "<a class='b' href='/ble-explorer'>BLE Explorer</a>"
+         "<a class='b' href='/i2c-explorer'>I2C Explorer</a>"
+         "<a class='b' href='/gpio-lab'>GPIO Lab</a>"
+         "<a class='b' href='/monitor'>System Monitor</a>"
          "<a class='b' href='/terminal'>Admin Terminal</a>"
          "<a class='b' href='/diagnostics'>Diagnostics</a>"
          "<a class='b' href='/modules'>Module Manager</a>"
@@ -173,6 +210,99 @@ void root() {
 }
 
 
+
+
+
+String v42SpiInfo(){
+  if(!v42SpiOK()) return "SPI pins pending final hardware pinout";
+  return "SCK GPIO"+String(V42_SPI_SCK)+", MISO GPIO"+String(V42_SPI_MISO)+", MOSI GPIO"+String(V42_SPI_MOSI);
+}
+void storagePage(){
+  String h=head("Storage Manager");
+  h+="<div class='card'><b>Shared SPI</b><br>"+esc(v42SpiInfo())+"<br>SD CS: "+String(V42_SD_CS)+"</div>";
+  if(!v42SdOK()) h+=F("<div class='card'>SD driver ready. GPIO assignment is intentionally disabled until the final board/display pinout is confirmed.</div>");
+  else {
+    SPI.begin(V42_SPI_SCK,V42_SPI_MISO,V42_SPI_MOSI,V42_SD_CS);
+    if(SD.begin(V42_SD_CS,SPI)){
+      h+="<div class='card'>microSD mounted<br>Card: "+String((uint32_t)(SD.cardSize()/1048576ULL))+" MB"+
+         "<br>Used: "+String((uint32_t)(SD.usedBytes()/1048576ULL))+" MB</div>";
+      SD.end();
+    } else h+=F("<div class='card'>microSD mount failed.</div>");
+  }
+  sendHTML(h+back()+foot());
+}
+void cc1101Page(){
+  String h=head("CC1101 RF");
+  h+=F("<div class='card'>CC1101 expansion slot prepared for passive Sub-GHz diagnostics, RSSI measurements and signal logging.</div>");
+  h+="<div class='card'>"+esc(v42SpiInfo())+"<br>CS: "+String(V42_CC1101_CS)+
+     "<br>GDO0: "+String(V42_CC1101_GDO0)+"<br>GDO2: "+String(V42_CC1101_GDO2)+"</div>";
+  if(!v42CcOK()) h+=F("<div class='card'>GPIO assignment pending final hardware pinout.</div>");
+  else h+=F("<div class='card'>SPI assignment ready. Radio initialization remains disabled until the exact module/frequency variant is verified.</div>");
+  sendHTML(h+back()+foot());
+}
+
+bool v41ReservedPin(int pin){
+  for(auto &p:pinClaims) if(p.gpio==pin && p.reserved) return true;
+  return false;
+}
+String wifiSec(wifi_auth_mode_t a){
+  if(a==WIFI_AUTH_OPEN)return "OPEN"; if(a==WIFI_AUTH_WEP)return "WEP";
+  if(a==WIFI_AUTH_WPA_PSK)return "WPA"; if(a==WIFI_AUTH_WPA2_PSK)return "WPA2";
+  if(a==WIFI_AUTH_WPA_WPA2_PSK)return "WPA/WPA2";
+  if(a==WIFI_AUTH_WPA3_PSK)return "WPA3"; if(a==WIFI_AUTH_WPA2_WPA3_PSK)return "WPA2/WPA3";
+  return "OTHER";
+}
+void wifiAnalyzerPage(){
+  int n=WiFi.scanNetworks(false,true); String h=head("WiFi Analyzer");
+  h+=F("<div class='card'>Passive survey only.</div>");
+  for(int i=0;i<n;i++) h+="<div class='card'><b>"+esc(WiFi.SSID(i))+"</b><br>RSSI: "+String(WiFi.RSSI(i))+
+    " dBm<br>Channel: "+String(WiFi.channel(i))+"<br>Security: "+wifiSec(WiFi.encryptionType(i))+
+    "<br>BSSID: <span class='mono'>"+WiFi.BSSIDstr(i)+"</span></div>";
+  if(n<=0) h+=F("<div class='card'>No networks found.</div>");
+  WiFi.scanDelete(); sendHTML(h+back()+foot());
+}
+void bleExplorerPage(){
+  BLEScan* sc=BLEDevice::getScan(); sc->setActiveScan(false); BLEScanResults rr=sc->start(4,false);
+  String h=head("BLE Explorer"); h+=F("<div class='card'>Passive BLE advertisement scan.</div>");
+  for(int i=0;i<rr.getCount();i++){ BLEAdvertisedDevice d=rr.getDevice(i);
+    String nm=d.haveName()?String(d.getName().c_str()):"(unnamed)";
+    h+="<div class='card'><b>"+esc(nm)+"</b><br>Address: <span class='mono'>"+
+       String(d.getAddress().toString().c_str())+"</span><br>RSSI: "+String(d.getRSSI())+" dBm</div>";
+  }
+  sc->clearResults(); sendHTML(h+back()+foot());
+}
+String knownI2C(uint8_t a){
+  if(a==0x40||a==0x41||a==0x44||a==0x45)return "INA219/INA2xx candidate";
+  if(a==0x68)return "DS3231/RTC candidate";
+  if(a>=0x50&&a<=0x57)return "EEPROM candidate";
+  return "";
+}
+void i2cExplorerPage(){
+  String h=head("I2C Explorer"); h+=F("<div class='card'>SDA GPIO8 / SCL GPIO9</div>"); int n=0;
+  for(uint8_t a=1;a<127;a++){ Wire.beginTransmission(a); if(Wire.endTransmission()==0){ n++;
+    String x=knownI2C(a); h+="<div class='card'><b>0x"; if(a<16)h+="0"; h+=String(a,HEX)+"</b>";
+    if(x.length())h+="<br>"+x; h+="</div>"; }}
+  if(!n)h+=F("<div class='card'>No I2C devices detected.</div>"); sendHTML(h+back()+foot());
+}
+void gpioLabPage(){
+  String r;
+  if(server.hasArg("pin")&&server.hasArg("op")){ int pin=server.arg("pin").toInt(); String op=server.arg("op");
+    if(pin<0||pin>48)r="Invalid GPIO";
+    else if(v41ReservedPin(pin))r="Blocked: GPIO"+String(pin)+" is reserved";
+    else if(op=="read"){pinMode(pin,INPUT);r="GPIO"+String(pin)+"="+String(digitalRead(pin));}
+    else if(op=="adc")r="ADC GPIO"+String(pin)+"="+String(analogRead(pin));
+  }
+  String h=head("GPIO Lab");
+  h+=F("<div class='card'>Read-only by default. Reserved pins are blocked.</div><div class='card'><form method='get' action='/gpio-lab'><input name='pin' inputmode='numeric' placeholder='GPIO'><select name='op'><option value='read'>Digital read</option><option value='adc'>ADC read</option></select><button type='submit'>Run</button></form></div>");
+  if(r.length())h+="<div class='card mono'>"+esc(r)+"</div>"; sendHTML(h+back()+foot());
+}
+void monitorPage(){
+  String h=head("System Monitor");
+  h+="<div class='card'>Uptime: "+String(millis()/1000)+" s<br>CPU: "+String(ESP.getCpuFreqMHz())+
+     " MHz<br>Free heap: "+String(ESP.getFreeHeap())+" B<br>Free PSRAM: "+String(ESP.getFreePsram())+
+     " B<br>WiFi RSSI: "+String(WiFi.status()==WL_CONNECTED?WiFi.RSSI():0)+" dBm</div>";
+  h+=F("<div class='card'><a class='b' href='/monitor'>Refresh</a></div>"); sendHTML(h+back()+foot());
+}
 
 void terminalPage(){
   String output,cmd;
@@ -521,13 +651,14 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.2");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
   Wire.begin(I2C_SDA,I2C_SCL);
   analogReadResolution(12);
 
+  Wire.begin(8,9);
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(AP_SSID,AP_PASS);
   connectSavedWiFi();
@@ -539,6 +670,13 @@ void setup(){
   server.on("/system",systemPage);
   server.on("/network",HTTP_GET,networkPage);
   server.on("/network",HTTP_POST,networkPage);
+  server.on("/storage",storagePage);
+  server.on("/cc1101",cc1101Page);
+  server.on("/wifi-analyzer",wifiAnalyzerPage);
+  server.on("/ble-explorer",bleExplorerPage);
+  server.on("/i2c-explorer",i2cExplorerPage);
+  server.on("/gpio-lab",gpioLabPage);
+  server.on("/monitor",monitorPage);
   server.on("/terminal",HTTP_GET,terminalPage);
   server.on("/terminal",HTTP_POST,terminalPage);
   server.on("/diagnostics",diagnosticsPage);
