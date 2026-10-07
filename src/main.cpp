@@ -22,7 +22,7 @@ bool v42CcOK(){return v42SpiOK()&&V42_CC1101_CS>=0;}
 #include <esp_chip_info.h>
 #include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.4.2
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.5.0
 // Adds local Wi-Fi setup without storing home credentials in GitHub/source.
 // The fallback AP remains available for configuration and recovery.
 
@@ -244,6 +244,129 @@ String pinSummary(){
   return r;
 }
 
+// V4.5.0 PN532 NFC / read-only EMV analyzer (I2C GPIO8/9).
+// No write, PIN, key extraction, transaction or cryptogram-generation operations.
+static const uint8_t PN532_I2C_ADDR = 0x24;
+String nfcLastReport = "No NFC scan yet";
+
+String hexBytes(const uint8_t* p, size_t n) {
+  String r; r.reserve(n*3);
+  const char* hx="0123456789ABCDEF";
+  for(size_t i=0;i<n;i++){ if(i) r+=' '; r+=hx[p[i]>>4]; r+=hx[p[i]&15]; }
+  return r;
+}
+
+bool pnWriteFrame(const uint8_t* data, uint8_t len) {
+  uint8_t sum=0;
+  Wire.beginTransmission(PN532_I2C_ADDR);
+  Wire.write((uint8_t)0x00); Wire.write((uint8_t)0x00); Wire.write((uint8_t)0xFF);
+  Wire.write(len+1); Wire.write((uint8_t)(~(len+1)+1));
+  Wire.write((uint8_t)0xD4); sum=0xD4;
+  for(uint8_t i=0;i<len;i++){ Wire.write(data[i]); sum+=data[i]; }
+  Wire.write((uint8_t)(~sum+1)); Wire.write((uint8_t)0x00);
+  return Wire.endTransmission()==0;
+}
+
+bool pnReadRaw(uint8_t* out, size_t cap, size_t &got, uint32_t timeout=1200) {
+  got=0; uint32_t t=millis();
+  while(millis()-t<timeout){
+    Wire.requestFrom((int)PN532_I2C_ADDR, 1);
+    if(Wire.available() && Wire.read()==1) break;
+    delay(10);
+  }
+  if(millis()-t>=timeout) return false;
+  delay(2);
+  int want=(int)min(cap+1,(size_t)255);
+  Wire.requestFrom((int)PN532_I2C_ADDR,want);
+  if(!Wire.available()) return false;
+  Wire.read(); // PN532 I2C status byte
+  while(Wire.available() && got<cap) out[got++]=Wire.read();
+  return got>0;
+}
+
+bool pnCommand(const uint8_t* cmd, uint8_t cmdLen, uint8_t expected, uint8_t* payload, size_t cap, size_t &plen, uint32_t timeout=1500) {
+  plen=0; if(!pnWriteFrame(cmd,cmdLen)) return false;
+  uint8_t b[255]; size_t n=0;
+  if(!pnReadRaw(b,sizeof(b),n,timeout)) return false; // ACK or response
+  bool ack=n>=6 && b[0]==0x00 && b[1]==0x00 && b[2]==0xFF && b[3]==0x00 && b[4]==0xFF;
+  if(ack){ if(!pnReadRaw(b,sizeof(b),n,timeout)) return false; }
+  size_t st=0; while(st+7<n && !(b[st]==0x00&&b[st+1]==0x00&&b[st+2]==0xFF)) st++;
+  if(st+7>=n) return false;
+  uint8_t len=b[st+3]; if(len<2 || st+5+len>n) return false;
+  if(b[st+5]!=0xD5 || b[st+6]!=expected) return false;
+  size_t avail=len-2; plen=min(avail,cap);
+  for(size_t i=0;i<plen;i++) payload[i]=b[st+7+i];
+  return true;
+}
+
+bool pn532Init() {
+  Wire.beginTransmission(PN532_I2C_ADDR);
+  if(Wire.endTransmission()!=0) return false;
+  uint8_t c[]={0x14,0x01,0x14,0x01}; uint8_t r[16]; size_t n=0;
+  return pnCommand(c,sizeof(c),0x15,r,sizeof(r),n);
+}
+
+bool pn532Card(uint8_t* uid,uint8_t &uidLen,String &tech) {
+  uint8_t c[]={0x4A,0x01,0x00}; uint8_t r[80]; size_t n=0;
+  if(!pnCommand(c,sizeof(c),0x4B,r,sizeof(r),n,1800) || n<7 || r[0]<1) return false;
+  uint16_t atqa=((uint16_t)r[2]<<8)|r[3]; uint8_t sak=r[4]; uidLen=r[5];
+  if(uidLen>10 || 6+uidLen>n) return false;
+  memcpy(uid,r+6,uidLen);
+  tech="ATQA=0x"+String(atqa,HEX)+" SAK=0x"+String(sak,HEX);
+  if(6+uidLen<n){ uint8_t atsLen=r[6+uidLen]; if(atsLen && 7+uidLen+atsLen<=n) tech+=" ATS="+hexBytes(r+7+uidLen,atsLen-1); }
+  return true;
+}
+
+bool pnApdu(const uint8_t* apdu,uint8_t alen,uint8_t* out,size_t cap,size_t &olen) {
+  uint8_t c[250]; if(alen>245) return false; c[0]=0x40; c[1]=0x01; memcpy(c+2,apdu,alen);
+  uint8_t r[250]; size_t n=0; if(!pnCommand(c,alen+2,0x41,r,sizeof(r),n,1800)||n<1||r[0]!=0x00) return false;
+  olen=min(n-1,cap); memcpy(out,r+1,olen); return true;
+}
+
+bool tlvLen(const uint8_t* b,size_t n,size_t &i,size_t &len){
+  if(i>=n)return false; uint8_t x=b[i++]; if(!(x&0x80)){len=x;return i+len<=n;}
+  uint8_t k=x&0x7F; if(!k||k>3||i+k>n)return false; len=0; while(k--)len=(len<<8)|b[i++]; return i+len<=n;
+}
+String tlvName(uint32_t t){
+  switch(t){case 0x4F:return "AID";case 0x50:return "Application Label";case 0x84:return "DF Name";case 0x87:return "Priority";case 0x88:return "SFI";case 0x5F2D:return "Language";case 0x9F11:return "Issuer Code Table";case 0x9F12:return "Preferred Name";case 0x9F38:return "PDOL";case 0x82:return "AIP";case 0x94:return "AFL";case 0x9F36:return "ATC";case 0x9F10:return "Issuer App Data";case 0x9F6C:return "Card Transaction Qualifiers";default:return "";}
+}
+bool sensitiveTag(uint32_t t){ return t==0x5A||t==0x57||t==0x56||t==0x5F20||t==0x5F24||t==0x5F25||t==0x9F6B; }
+void decodeTLV(const uint8_t* b,size_t n,String &o,int depth=0){
+  size_t i=0; while(i<n){ size_t start=i; uint32_t tag=b[i++]; bool cons=tag&0x20;
+    if((tag&0x1F)==0x1F){ if(i>=n)break; tag=(tag<<8)|b[i++]; if((tag&0x80)&&i<n)tag=(tag<<8)|b[i++]; }
+    size_t len=0; if(!tlvLen(b,n,i,len)){o+="TLV parse stopped at "+String(start)+"\n";break;}
+    for(int d=0;d<depth;d++)o+="  "; o+=String(tag,HEX); String nm=tlvName(tag); if(nm.length())o+=" "+nm; o+=" ["+String(len)+"] ";
+    if(sensitiveTag(tag)) o+="<masked>"; else o+=hexBytes(b+i,len); o+="\n";
+    if(cons && depth<6) decodeTLV(b+i,len,o,depth+1); i+=len;
+  }
+}
+
+String nfcScanReport(bool emv) {
+  String o="PN532 NFC / EMV read-only analyzer\n";
+  if(!pn532Init()) return o+"ERROR: PN532 not responding at I2C 0x24";
+  uint8_t uid[10],ul=0; String tech;
+  if(!pn532Card(uid,ul,tech)) return o+"No ISO14443A card detected";
+  o+="UID: "+hexBytes(uid,ul)+"\n"+tech+"\n";
+  if(!emv){ nfcLastReport=o; return o; }
+  const uint8_t ppse[]={0x00,0xA4,0x04,0x00,0x0E,'2','P','A','Y','.','S','Y','S','.','D','D','F','0','1',0x00};
+  uint8_t r[240]; size_t rn=0;
+  o+="\nEMV PPSE SELECT\n";
+  if(!pnApdu(ppse,sizeof(ppse),r,sizeof(r),rn)){o+="No ISO-DEP/EMV response\n";nfcLastReport=o;return o;}
+  o+="RAW: "+hexBytes(r,rn)+"\n";
+  if(rn>=2)o+="SW: "+hexBytes(r+rn-2,2)+"\n";
+  if(rn>2){o+="DECODED TLV:\n";decodeTLV(r,rn-2,o);}
+  o+="\nSafety: account/track/cardholder fields are masked; no PIN, keys, writes, transactions or cryptogram generation.\n";
+  nfcLastReport=o; return o;
+}
+
+void nfcPage(){
+  String h=head("PN532 NFC / EMV Analyzer");
+  h+="<div class='card'><b>PN532</b><br>I2C 0x24 | SDA GPIO8 | SCL GPIO9</div>";
+  h+="<div class='grid'><a class='b' href='/nfc?mode=nfc'>NFC Scan</a><a class='b' href='/nfc?mode=emv'>EMV Analyze</a></div>";
+  if(server.hasArg("mode")){ String m=server.arg("mode"); nfcLastReport=nfcScanReport(m=="emv"); }
+  h+="<div class='card'><pre>"+esc(nfcLastReport)+"</pre></div>"+back()+foot(); sendHTML(h);
+}
+
 // Forward declarations for V4.4.2
 String v42SpiInfo();
 bool v41ReservedPin(int pin);
@@ -252,7 +375,7 @@ bool saveNetworkPermanent(const String &ssid, const String &pass);
 
 String runAdminCommand(String cmd){
   cmd.trim(); String lc=cmd; lc.toLowerCase();
-  if(lc=="help") return "Commands: help, status, wifi, wifi saved, uart status, uart start <rx> <tx> <baud>, uart stop, uart tx <text>, uart txhex <hex>, uart rx, uart clear, scan wifi, scan ble, i2c scan, i2c modules, storage, spi, cc1101, log status, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
+  if(lc=="help") return "Commands: help, status, wifi, wifi saved, uart status, uart start <rx> <tx> <baud>, uart stop, uart tx <text>, uart txhex <hex>, uart rx, uart clear, nfc status, nfc scan, emv scan, scan wifi, scan ble, i2c scan, i2c modules, storage, spi, cc1101, log status, modules, pins, logs, heap, psram, uptime, gpio read <pin>, adc read <pin>, reboot";
   if(lc=="uart status"){
     return "UART: "+String(uartAnalyzerRunning?"RUNNING":"STOPPED")+
            " | RX="+String(uartAnalyzerRxPin)+
@@ -292,6 +415,9 @@ String runAdminCommand(String cmd){
     if(tail.length()>1200) tail=tail.substring(tail.length()-1200);
     return tail;
   }
+  if(lc=="nfc status") { Wire.beginTransmission(PN532_I2C_ADDR); return Wire.endTransmission()==0 ? "PN532 ONLINE at I2C 0x24 (SDA8/SCL9)" : "PN532 offline"; }
+  if(lc=="nfc scan") return nfcScanReport(false);
+  if(lc=="emv scan") return nfcScanReport(true);
   if(lc=="status") return "Cyberdeck V4\nWiFi: "+String(WiFi.status()==WL_CONNECTED?"CONNECTED":"offline")+
     "\nLAN IP: "+WiFi.localIP().toString()+"\nAP IP: "+WiFi.softAPIP().toString()+
     "\nHeap: "+String(ESP.getFreeHeap())+"\nPSRAM: "+String(ESP.getFreePsram());
@@ -390,7 +516,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V4.4.2</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V4.5.0</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -401,7 +527,7 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
-         "<a class='b' href='/v43-modules'>V4.4.2 Module Status</a>"
+         "<a class='b' href='/v43-modules'>V4.5.0 Module Status</a>"
          "<a class='b' href='/storage'>Storage Manager</a>"
          "<a class='b' href='/cc1101'>CC1101 RF</a>"
          "<a class='b' href='/wifi-analyzer'>WiFi Analyzer</a>"
@@ -411,6 +537,7 @@ void root() {
          "<a class='b' href='/monitor'>System Monitor</a>"
          "<a class='b' href='/terminal'>Admin Terminal</a>"
          "<a class='b' href='/uart'>UART Lab</a>"
+         "<a class='b' href='/nfc'>NFC / EMV Analyzer</a>"
          "<a class='b' href='/diagnostics'>Diagnostics</a>"
          "<a class='b' href='/modules'>Module Manager</a>"
          "<a class='b' href='/pins'>Pin Manager</a>"
@@ -470,7 +597,7 @@ void storagePage(){
 }
 
 void v43ModulesPage(){
-  String h=head("V4.4.2 Module Status");
+  String h=head("V4.5.0 Module Status");
   h+=F("<div class='card'><b>I2C bus</b><br>SDA GPIO8 / SCL GPIO9<br>Prepared: DS3231, INA219 and PN532 integration.</div>");
   h+="<div class='card'><b>SPI bus</b><br>"+esc(v42SpiInfo())+
      "<br>Prepared: CC1101 + microSD with independent CS pins.</div>";
@@ -944,7 +1071,7 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.4.2");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.5.0");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
@@ -984,6 +1111,7 @@ void setup(){
   server.on("/adc",adcPage);
   server.on("/pwm",pwmPage);
   server.on("/expansion",expansionPage);
+  server.on("/nfc",HTTP_GET,nfcPage);
   server.onNotFound([](){server.send(404,"text/plain","404");});
   
   server.on("/uart", HTTP_GET, []() {
