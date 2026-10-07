@@ -22,7 +22,7 @@ bool v42CcOK(){return v42SpiOK()&&V42_CC1101_CS>=0;}
 #include <esp_chip_info.h>
 #include <Preferences.h>
 
-// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.5.0
+// ESP32-S3 N16R8 CYBERDECK TOOLBOX V4.5.1
 // Adds local Wi-Fi setup without storing home credentials in GitHub/source.
 // The fallback AP remains available for configuration and recovery.
 
@@ -244,7 +244,7 @@ String pinSummary(){
   return r;
 }
 
-// V4.5.0 PN532 NFC / read-only EMV analyzer (I2C GPIO8/9).
+// V4.5.1 PN532 NFC / read-only EMV analyzer (I2C GPIO8/9).
 // No write, PIN, key extraction, transaction or cryptogram-generation operations.
 static const uint8_t PN532_I2C_ADDR = 0x24;
 String nfcLastReport = "No NFC scan yet";
@@ -341,25 +341,122 @@ void decodeTLV(const uint8_t* b,size_t n,String &o,int depth=0){
   }
 }
 
-String nfcScanReport(bool emv) {
-  String o="PN532 NFC / EMV read-only analyzer\n";
-  if(!pn532Init()) return o+"ERROR: PN532 not responding at I2C 0x24";
-  uint8_t uid[10],ul=0; String tech;
-  if(!pn532Card(uid,ul,tech)) return o+"No ISO14443A card detected";
-  o+="UID: "+hexBytes(uid,ul)+"\n"+tech+"\n";
-  if(!emv){ nfcLastReport=o; return o; }
-  const uint8_t ppse[]={0x00,0xA4,0x04,0x00,0x0E,'2','P','A','Y','.','S','Y','S','.','D','D','F','0','1',0x00};
-  uint8_t r[240]; size_t rn=0;
-  o+="\nEMV PPSE SELECT\n";
-  if(!pnApdu(ppse,sizeof(ppse),r,sizeof(r),rn)){o+="No ISO-DEP/EMV response\n";nfcLastReport=o;return o;}
-  o+="RAW: "+hexBytes(r,rn)+"\n";
-  if(rn>=2)o+="SW: "+hexBytes(r+rn-2,2)+"\n";
-  if(rn>2){o+="DECODED TLV:\n";decodeTLV(r,rn-2,o);}
-  o+="\nSafety: account/track/cardholder fields are masked; no PIN, keys, writes, transactions or cryptogram generation.\n";
-  nfcLastReport=o; return o;
+struct EmvAppInfo {
+  String aid;
+  String label;
+  int priority = -1;
+};
+
+String asciiValue(const uint8_t* p, size_t n) {
+  String r; r.reserve(n);
+  for(size_t i=0;i<n;i++) {
+    char c=(char)p[i];
+    r += (c>=32 && c<=126) ? c : '.';
+  }
+  return r;
 }
 
-// V4.5 forward declarations
+String aidNetwork(const String &aid) {
+  if(aid.startsWith("A000000003")) return "Visa";
+  if(aid.startsWith("A000000004")) return "Mastercard";
+  if(aid.startsWith("A000000025")) return "American Express";
+  if(aid.startsWith("A000000065")) return "JCB";
+  if(aid.startsWith("A000000152")) return "Discover";
+  if(aid.startsWith("A000000333")) return "UnionPay";
+  if(aid.startsWith("D578")) return "BankAxept";
+  return "Unknown / local application";
+}
+
+void collectEmvApps(const uint8_t* b,size_t n,EmvAppInfo* apps,int &count,int maxApps,int current=-1,int depth=0) {
+  if(depth>7) return;
+  size_t i=0;
+  while(i<n) {
+    uint32_t tag=b[i++]; bool cons=tag&0x20;
+    if((tag&0x1F)==0x1F) {
+      if(i>=n) break;
+      uint8_t x=b[i++]; tag=(tag<<8)|x;
+      if((x&0x80) && i<n) tag=(tag<<8)|b[i++];
+    }
+    size_t len=0;
+    if(!tlvLen(b,n,i,len)) break;
+    int child=current;
+    if(tag==0x61 && count<maxApps) {
+      child=count++;
+      apps[child]=EmvAppInfo();
+    }
+    if(child>=0 && child<count) {
+      if(tag==0x4F) apps[child].aid=hexBytes(b+i,len); // public application identifier
+      else if(tag==0x50 || tag==0x9F12) apps[child].label=asciiValue(b+i,len);
+      else if(tag==0x87 && len) apps[child].priority=b[i]&0x0F;
+    }
+    if(cons) collectEmvApps(b+i,len,apps,count,maxApps,child,depth+1);
+    i+=len;
+  }
+}
+
+String nfcScanReport(bool emv) {
+  String o="NFC / EMV ANALYSIS (READ-ONLY)\n\n";
+  if(!pn532Init()) return o+"ERROR: PN532 not responding at I2C 0x24";
+
+  uint8_t uid[10],ul=0; String tech;
+  if(!pn532Card(uid,ul,tech)) return o+"No ISO14443A card detected";
+
+  o+="CARD\n";
+  o+=" UID: "+hexBytes(uid,ul)+"\n";
+  o+=" "+tech+"\n";
+  if(tech.indexOf("SAK=0x20")>=0) o+=" Protocol: ISO-DEP / ISO 14443-4 capable\n";
+
+  if(!emv) {
+    o+="\nSafety: read-only scan. No card data is written.\n";
+    nfcLastReport=o;
+    return o;
+  }
+
+  const uint8_t ppse[]={0x00,0xA4,0x04,0x00,0x0E,'2','P','A','Y','.','S','Y','S','.','D','D','F','0','1',0x00};
+  uint8_t r[240]; size_t rn=0;
+  o+="\nPPSE\n";
+  if(!pnApdu(ppse,sizeof(ppse),r,sizeof(r),rn)) {
+    o+=" Status: no ISO-DEP/EMV response\n";
+    nfcLastReport=o;
+    return o;
+  }
+
+  bool ok = rn>=2 && r[rn-2]==0x90 && r[rn-1]==0x00;
+  o+=" Status: "+String(ok?"SUCCESS":"RESPONSE")+(rn>=2?" ("+hexBytes(r+rn-2,2)+")":"")+"\n";
+
+  EmvAppInfo apps[8]; int appCount=0;
+  if(rn>2) collectEmvApps(r,rn-2,apps,appCount,8);
+  o+=" Applications: "+String(appCount)+"\n";
+  for(int i=0;i<appCount;i++) {
+    o+="\nAPPLICATION #"+String(i+1)+"\n";
+    o+=" Label: "+(apps[i].label.length()?apps[i].label:"(not supplied)")+"\n";
+    o+=" AID: "+(apps[i].aid.length()?apps[i].aid:"(not supplied)")+"\n";
+    if(apps[i].aid.length()) {
+      String compact=apps[i].aid; compact.replace(" ","");
+      o+=" Network: "+aidNetwork(compact)+"\n";
+    }
+    if(apps[i].priority>=0) o+=" Priority: "+String(apps[i].priority)+"\n";
+  }
+
+  // Put the safety statement before verbose diagnostics so it remains visible
+  // even in clients that truncate very long terminal output.
+  o+="\nSENSITIVE FIELDS\n";
+  o+=" Account/track/cardholder fields: MASKED / NOT COLLECTED\n";
+  o+=" No PIN, keys, writes, transactions or cryptogram generation.\n";
+
+  o+="\n--- ADVANCED / RAW ---\n";
+  o+="PPSE SELECT RAW: "+hexBytes(r,rn)+"\n";
+  if(rn>=2) o+="SW: "+hexBytes(r+rn-2,2)+"\n";
+  if(rn>2) {
+    o+="DECODED BER-TLV:\n";
+    decodeTLV(r,rn-2,o);
+  }
+
+  nfcLastReport=o;
+  return o;
+}
+
+// Web helper forward declarations (needed because NFC page appears before definitions).
 String head(const String& title);
 String esc(String s);
 String back();
@@ -523,7 +620,7 @@ String head(const String &sub) {
          "border:1px solid #343b45;border-radius:8px}.tag{display:inline-block;padding:4px 8px;"
          "margin:3px;border-radius:20px;background:#252c35;color:#b9c1ca}.back{margin-top:14px}"
          "</style></head><body><div class='w'>");
-  h += "<h1>ESP32-S3 CYBERDECK V4.5.0</h1><div class='sub'>" + esc(sub) + "</div>";
+  h += "<h1>ESP32-S3 CYBERDECK V4.5.1</h1><div class='sub'>" + esc(sub) + "</div>";
   return h;
 }
 String foot(){ return F("</div></body></html>"); }
@@ -534,7 +631,7 @@ void root() {
   String h=head("Field toolbox / hardware console");
   h += F("<div class='grid'>"
          "<a class='b' href='/system'>System / Health</a>"
-         "<a class='b' href='/v43-modules'>V4.5.0 Module Status</a>"
+         "<a class='b' href='/v43-modules'>V4.5.1 Module Status</a>"
          "<a class='b' href='/storage'>Storage Manager</a>"
          "<a class='b' href='/cc1101'>CC1101 RF</a>"
          "<a class='b' href='/wifi-analyzer'>WiFi Analyzer</a>"
@@ -604,7 +701,7 @@ void storagePage(){
 }
 
 void v43ModulesPage(){
-  String h=head("V4.5.0 Module Status");
+  String h=head("V4.5.1 Module Status");
   h+=F("<div class='card'><b>I2C bus</b><br>SDA GPIO8 / SCL GPIO9<br>Prepared: DS3231, INA219 and PN532 integration.</div>");
   h+="<div class='card'><b>SPI bus</b><br>"+esc(v42SpiInfo())+
      "<br>Prepared: CC1101 + microSD with independent CS pins.</div>";
@@ -1078,7 +1175,7 @@ void setup(){
   bootMs=millis();
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.5.0");
+  Serial.println("\nESP32-S3 CYBERDECK TOOLBOX V4.5.1");
   Serial.printf("Flash: %u\n",ESP.getFlashChipSize());
   Serial.printf("PSRAM: %u\n",ESP.getPsramSize());
 
