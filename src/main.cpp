@@ -359,6 +359,13 @@ String nfcScanReport(bool emv) {
   nfcLastReport=o; return o;
 }
 
+// V4.5 forward declarations
+String head(const String& title);
+String esc(String s);
+String back();
+String foot();
+void sendHTML(String h);
+
 void nfcPage(){
   String h=head("PN532 NFC / EMV Analyzer");
   h+="<div class='card'><b>PN532</b><br>I2C 0x24 | SDA GPIO8 | SCL GPIO9</div>";
