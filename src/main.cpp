@@ -53,7 +53,7 @@ void wifiKeyboardKey(uint16_t x,uint16_t y){
 
 bool readTouch(uint16_t &x,uint16_t &y){
   Wire.beginTransmission(TOUCH_ADDR);Wire.write(0x02);
-  if(Wire.endTransmission(false)!=0 || Wire.requestFrom(TOUCH_ADDR,(uint8_t)5)!=(uint8_t)5)return false;
+  if(Wire.endTransmission(false)!=0 || Wire.requestFrom((uint8_t)TOUCH_ADDR,(uint8_t)5)!=(uint8_t)5)return false;
   uint8_t s=Wire.read(),xh=Wire.read(),xl=Wire.read(),yh=Wire.read(),yl=Wire.read();
   if((s&0x0F)==0 || (s&0x0F)>2)return false;
   uint16_t rx=((xh&0x0F)<<8)|xl,ry=((yh&0x0F)<<8)|yl;
