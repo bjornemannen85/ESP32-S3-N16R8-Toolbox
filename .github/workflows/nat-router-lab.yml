@@ -15,4 +15,4 @@ jobs:
         uses: docker://espressif/idf:v5.3.2
         with:
           entrypoint: /bin/bash
-          args: -c 'cd nat_router_idf && idf.py build'
+          args: "-c cd\ nat_router_idf\ \&\&\ idf.py\ build"
