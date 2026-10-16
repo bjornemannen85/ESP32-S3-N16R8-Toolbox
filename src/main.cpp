@@ -18,17 +18,8 @@ constexpr uint16_t BLUE=0x047F,PURPLE=0xA81F,GREEN=0x07E0,RED=0xF945,YELLOW=0xFF
 enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, PAGE_GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES };
 Page page=HOME, parent=HOME;
 void draw();
-Page history[12];
-int historyDepth=0;
-
-void goBack(){
-  if(historyDepth>0){
-    page=history[--historyDepth];
-  }else{
-    page=HOME;
-  }
-  draw();
-}
+Page history[12]; int historyDepth=0;
+void goBack(){page=historyDepth>0?history[--historyDepth]:HOME;draw();}
 bool lastPressed=false,touchOK=false,bleReady=false;
 uint32_t lastTouch=0,lastSystemDraw=0;
 String wifiLines[7],bleLines[7]; int wifiCount=-1,bleCount=-1;
@@ -47,33 +38,28 @@ bool readTouch(uint16_t &x,uint16_t &y){
 }
 void label(const String &s,int x,int y,uint8_t sz=2,uint16_t color=WHITE){lcd.setTextSize(sz);lcd.setTextColor(color);lcd.setCursor(x,y);lcd.print(s);}
 uint16_t tileColor(Page p){switch(p){case WIFI:case RADIO:return ACCENT;case BLE:return BLUE;case NFC:return PURPLE;case SUBGHZ:return ORANGE;case IR:return RED;case PAGE_GPIO:return GREEN;case UART:return ACCENT;case I2C:case SPI_DIAG:return YELLOW;case SYSTEM:return BLUE;case STORAGE:return BLUE;default:return MUTED;}}
-String clipped(String s,size_t maxLen);
 void tile(int x,int y,int w,int h,const String &title,Page target){
  uint16_t c=tileColor(target);
- lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,c);
- lcd.fillRoundRect(x+7,y+7,27,27,5,BG);lcd.drawRoundRect(x+7,y+7,27,27,5,c);
- // Simple hardware-rendered pictogram: no external fonts or image assets.
+ lcd.fillRoundRect(x,y,w,h,6,PANEL);lcd.drawRoundRect(x,y,w,h,6,c);
+ int cx=x+w/2,cy=y+17;
  if(target==WIFI || target==RADIO){
-   lcd.drawCircle(x+20,y+20,8,c);
-   lcd.fillCircle(x+20,y+20,2,c);
+   lcd.drawCircle(cx,cy,10,c);lcd.drawCircle(cx,cy,6,c);lcd.fillCircle(cx,cy,2,c);
  }else if(target==BLE){
-   lcd.drawLine(x+20,y+11,x+20,y+29,c);
-   lcd.drawLine(x+20,y+11,x+26,y+17,c);
-   lcd.drawLine(x+26,y+17,x+15,y+25,c);
-   lcd.drawLine(x+15,y+15,x+26,y+25,c);
-   lcd.drawLine(x+26,y+25,x+20,y+29,c);
- }else if(target==SYSTEM || target==TOOLS){
-   lcd.drawRoundRect(x+13,y+13,15,15,3,c);
-   lcd.drawLine(x+16,y+24,x+20,y+17,c);
-   lcd.drawLine(x+20,y+17,x+25,y+24,c);
+   lcd.drawLine(cx,cy-10,cx,cy+10,c);lcd.drawLine(cx,cy-10,cx+7,cy-3,c);
+   lcd.drawLine(cx+7,cy-3,cx-7,cy+6,c);lcd.drawLine(cx-7,cy-6,cx+7,cy+4,c);
+   lcd.drawLine(cx+7,cy+4,cx,cy+10,c);
+ }else if(target==SUBGHZ || target==NFC){
+   lcd.drawCircle(cx,cy,4,c);lcd.drawCircle(cx,cy,9,c);lcd.fillCircle(cx,cy,2,c);
+ }else if(target==SYSTEM || target==TOOLS || target==SETTINGS){
+   lcd.drawRoundRect(cx-10,cy-10,20,20,4,c);lcd.drawCircle(cx,cy,5,c);
  }else{
-   lcd.drawRect(x+14,y+14,13,13,c);
-   lcd.fillCircle(x+20,y+20,2,c);
+   lcd.drawRoundRect(cx-9,cy-9,18,18,3,c);lcd.fillRect(cx-3,cy-3,6,6,c);
  }
- label(clipped(title,17),x+41,y+13,1,WHITE);
+ lcd.setTextSize(1);lcd.setTextColor(WHITE);
+ String t=title; if(t.length()>12)t=t.substring(0,12);
+ lcd.setCursor(x+(w-(int)t.length()*6)/2,y+h-14);lcd.print(t);
 }
 void button(int x,int y,int w,int h,const String &s){lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,ACCENT);label(s,x+10,y+(h-16)/2,2);}
-
 void header(const String &s){lcd.fillScreen(BG);lcd.fillRect(0,0,320,33,PANEL);lcd.drawFastHLine(0,33,320,ACCENT);label(clipped(s,25),8,9,1,ACCENT);}
 void backButton(){button(8,198,104,35,"BACK");}
 void footer(const String &s){label(s,9,235,1,MUTED);}
@@ -83,13 +69,17 @@ void menu(const Page *items,int count){
  backButton();
 }
 void draw(){
- header(page==HOME?"CYBERDECK V4.9 PRO":names[page]);
+ header(page==HOME?"CYBERDECK V4.9.1":names[page]);
  switch(page){
- case HOME:
-  tile(8,43,148,45,"RADIO",RADIO);tile(164,43,148,45,"HARDWARE",HARDWARE);
-  tile(8,94,148,45,"TOOLS",TOOLS);tile(164,94,148,45,"SYSTEM",SYSTEM);
-  tile(8,145,148,45,"WIFI",WIFI);tile(164,145,148,45,"BLE",BLE);
-  footer("V4.9 PRO  |  ES3C28P  |  SAFE");break;
+ case HOME:{
+  const Page homeItems[]={WIFI,BLE,NFC,SUBGHZ,IR,PAGE_GPIO,UART,I2C,STORAGE,SYSTEM,SETTINGS,TOOLS};
+  const char* homeNames[]={"WIFI","BLE","NFC/RFID","SUB-GHZ","IR","GPIO","UART","I2C/SPI","SD CARD","SYSTEM","SETTINGS","TOOLS"};
+  for(int i=0;i<12;i++){
+   int col=i%4,row=i/4;
+   tile(5+col*79,39+row*59,73,54,homeNames[i],homeItems[i]);
+  }
+  label("ES3C28P  V4.9.1  SAFE MODE",6,223,1,MUTED);break;
+ }
  case RADIO: menu(radioItems,5);break;
  case HARDWARE: menu(hwItems,6);break;
  case TOOLS: menu(toolItems,4);break;
@@ -117,7 +107,7 @@ void draw(){
  case NFC:case SUBGHZ:case IR:case PAGE_GPIO:case UART:case I2C:case SPI_DIAG:case STORAGE:
   label("NOT CONFIGURED",12,65,2,ORANGE);
   label("Hardware / pins pending",12,103,1,MUTED);
-  label("GPIO outputs disabled",12,122,1,MUTED);backButton();break;
+  label("No GPIO activity",12,122,1,MUTED);backButton();break;
  case SETTINGS:
   label("Pin mapping: pending",12,57,1,ORANGE);
   label("WiFi setup: pending",12,79,1,ORANGE);
@@ -130,22 +120,22 @@ void draw(){
 }
 void scanWifi(){header("WIFI SCANNING...");for(auto &s:wifiLines)s="";WiFi.mode(WIFI_STA);WiFi.disconnect(false,false);delay(100);int n=WiFi.scanNetworks(false,true);wifiCount=n<0?0:n;for(int i=0;i<n&&i<7;i++){String ssid=WiFi.SSID(i);if(!ssid.length())ssid="<hidden>";wifiLines[i]=clipped(ssid,20)+" "+String(WiFi.RSSI(i))+"dBm ch"+String(WiFi.channel(i));}WiFi.scanDelete();draw();}
 void scanBle(){header("BLE SCANNING...");for(auto &s:bleLines)s="";if(!bleReady){BLEDevice::init("");bleReady=true;}BLEScan *s=BLEDevice::getScan();s->setActiveScan(false);BLEScanResults results=s->start(4,false);bleCount=results.getCount();for(int i=0;i<bleCount&&i<7;i++){BLEAdvertisedDevice d=results.getDevice(i);String name=d.haveName()?String(d.getName().c_str()):String(d.getAddress().toString().c_str());bleLines[i]=clipped(name,24)+" "+String(d.getRSSI())+"dBm";}s->clearResults();draw();}
-void enter(Page p,Page from){
-  if(historyDepth<12) history[historyDepth++]=page;
-  parent=from;
-  page=p;
-  draw();
-}
-void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);Serial.printf("ES3C28P V4.8 touch=%s\n",touchOK?"YES":"NO");draw();}
+void enter(Page p,Page from){if(historyDepth<12)history[historyDepth++]=page;parent=from;page=p;draw();}
+void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);Serial.printf("ES3C28P V4.8 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
  if(pressed&&page==TOUCH&&y<185)lcd.fillCircle(x,y,3,BLUE);
  if(pressed&&!lastPressed&&millis()-lastTouch>220){
   lastTouch=millis();
   if(page==HOME){
-   if(y>=43&&y<88)enter(x<160?RADIO:HARDWARE,HOME);
-   else if(y>=94&&y<139)enter(x<160?TOOLS:SYSTEM,HOME);
-   else if(y>=145&&y<190)enter(x<160?WIFI:BLE,HOME);
+   if(x>=5&&x<317&&y>=39&&y<211){
+    int col=(int(x)-5)/79,row=(int(y)-39)/59;
+    int lx=(int(x)-5)%79,ly=(int(y)-39)%59;
+    if(col<4&&row<3&&lx<73&&ly<54){
+     const Page homeItems[]={WIFI,BLE,NFC,SUBGHZ,IR,PAGE_GPIO,UART,I2C,STORAGE,SYSTEM,SETTINGS,TOOLS};
+     enter(homeItems[row*4+col],HOME);
+    }
+   }
   }else if(y>=190&&x<125){goBack();}
   else if(page==RADIO||page==HARDWARE||page==TOOLS){
    const Page *items=page==RADIO?radioItems:page==HARDWARE?hwItems:toolItems;
