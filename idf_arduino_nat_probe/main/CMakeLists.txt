@@ -2,7 +2,6 @@ idf_component_register(
     SRCS
         "main.cpp"
         "cyberdeck.cpp"
-        "${PROJECT_DIR}/managed_components/espressif__arduino-esp32/libraries/NetworkClientSecure/src/ssl_client.cpp"
     INCLUDE_DIRS
         "."
         "../../src"
