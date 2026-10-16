@@ -1,5 +1,10 @@
 name: NAT compatibility probe (manual only)
 on:
+  push:
+    branches:
+      - v6.1-ultimate-pro
+    paths:
+      - .github/workflows/nat-probe.yml
   workflow_dispatch:
 jobs:
   probe:
