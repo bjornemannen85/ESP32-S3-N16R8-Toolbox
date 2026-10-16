@@ -32,7 +32,7 @@ void goBack(){
 bool lastPressed=false,touchOK=false,bleReady=false;
 uint32_t lastTouch=0,lastSystemDraw=0;
 String wifiLines[7],bleLines[7]; int wifiCount=-1,bleCount=-1;
-const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","PAGE_GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER"};
+const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER"};
 const Page radioItems[]={WIFI,BLE,NFC,SUBGHZ,IR};
 const Page hwItems[]={PAGE_GPIO,UART,I2C,SPI_DIAG,STORAGE,MODULES};
 const Page toolItems[]={SYSTEM,TOUCH,SETTINGS,LOGS};
@@ -47,16 +47,33 @@ bool readTouch(uint16_t &x,uint16_t &y){
 }
 void label(const String &s,int x,int y,uint8_t sz=2,uint16_t color=WHITE){lcd.setTextSize(sz);lcd.setTextColor(color);lcd.setCursor(x,y);lcd.print(s);}
 uint16_t tileColor(Page p){switch(p){case WIFI:case RADIO:return ACCENT;case BLE:return BLUE;case NFC:return PURPLE;case SUBGHZ:return ORANGE;case IR:return RED;case PAGE_GPIO:return GREEN;case UART:return ACCENT;case I2C:case SPI_DIAG:return YELLOW;case SYSTEM:return BLUE;case STORAGE:return BLUE;default:return MUTED;}}
+String clipped(String s,size_t maxLen);
 void tile(int x,int y,int w,int h,const String &title,Page target){
  uint16_t c=tileColor(target);
  lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,c);
  lcd.fillRoundRect(x+7,y+7,27,27,5,BG);lcd.drawRoundRect(x+7,y+7,27,27,5,c);
  // Simple hardware-rendered pictogram: no external fonts or image assets.
- lcd.drawCircle(x+20,y+20,7,c);lcd.fillCircle(x+20,y+20,2,c);
- label(title,x+41,y+13,1,WHITE);
+ if(target==WIFI || target==RADIO){
+   lcd.drawCircle(x+20,y+20,8,c);
+   lcd.fillCircle(x+20,y+20,2,c);
+ }else if(target==BLE){
+   lcd.drawLine(x+20,y+11,x+20,y+29,c);
+   lcd.drawLine(x+20,y+11,x+26,y+17,c);
+   lcd.drawLine(x+26,y+17,x+15,y+25,c);
+   lcd.drawLine(x+15,y+15,x+26,y+25,c);
+   lcd.drawLine(x+26,y+25,x+20,y+29,c);
+ }else if(target==SYSTEM || target==TOOLS){
+   lcd.drawRoundRect(x+13,y+13,15,15,3,c);
+   lcd.drawLine(x+16,y+24,x+20,y+17,c);
+   lcd.drawLine(x+20,y+17,x+25,y+24,c);
+ }else{
+   lcd.drawRect(x+14,y+14,13,13,c);
+   lcd.fillCircle(x+20,y+20,2,c);
+ }
+ label(clipped(title,17),x+41,y+13,1,WHITE);
 }
 void button(int x,int y,int w,int h,const String &s){lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,ACCENT);label(s,x+10,y+(h-16)/2,2);}
-String clipped(String s,size_t maxLen);
+
 void header(const String &s){lcd.fillScreen(BG);lcd.fillRect(0,0,320,33,PANEL);lcd.drawFastHLine(0,33,320,ACCENT);label(clipped(s,25),8,9,1,ACCENT);}
 void backButton(){button(8,198,104,35,"BACK");}
 void footer(const String &s){label(s,9,235,1,MUTED);}
@@ -66,13 +83,13 @@ void menu(const Page *items,int count){
  backButton();
 }
 void draw(){
- header(page==HOME?"CYBERDECK V4.8":names[page]);
+ header(page==HOME?"CYBERDECK V4.9 PRO":names[page]);
  switch(page){
  case HOME:
   tile(8,43,148,45,"RADIO",RADIO);tile(164,43,148,45,"HARDWARE",HARDWARE);
   tile(8,94,148,45,"TOOLS",TOOLS);tile(164,94,148,45,"SYSTEM",SYSTEM);
   tile(8,145,148,45,"WIFI",WIFI);tile(164,145,148,45,"BLE",BLE);
-  footer("ES3C28P  |  PRO UI  |  SAFE MODE");break;
+  footer("V4.9 PRO  |  ES3C28P  |  SAFE");break;
  case RADIO: menu(radioItems,5);break;
  case HARDWARE: menu(hwItems,6);break;
  case TOOLS: menu(toolItems,4);break;
@@ -96,11 +113,11 @@ void draw(){
   label("CC1101: NOT CONFIGURED",8,76,1,ORANGE);
   label("IR: NOT CONFIGURED",8,100,1,ORANGE);
   label("SD: NOT MOUNTED",8,124,1,ORANGE);
-  label("No PAGE_GPIO assignments yet",8,155,1,MUTED);backButton();break;
+  label("GPIO: NOT CONFIGURED",8,155,1,MUTED);backButton();break;
  case NFC:case SUBGHZ:case IR:case PAGE_GPIO:case UART:case I2C:case SPI_DIAG:case STORAGE:
   label("NOT CONFIGURED",12,65,2,ORANGE);
   label("Hardware / pins pending",12,103,1,MUTED);
-  label("No PAGE_GPIO activity",12,122,1,MUTED);backButton();break;
+  label("GPIO outputs disabled",12,122,1,MUTED);backButton();break;
  case SETTINGS:
   label("Pin mapping: pending",12,57,1,ORANGE);
   label("WiFi setup: pending",12,79,1,ORANGE);
