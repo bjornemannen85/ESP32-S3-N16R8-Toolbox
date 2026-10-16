@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <SD_MMC.h>
 #include "v6_web.h"
+#include "v61_wifi.h"
 #include <BLEDevice.h>
 #include <BLEScan.h>
 #include <Adafruit_GFX.h>
@@ -162,8 +163,9 @@ void draw(){
   label("SSID: "+v6SSID,12,144,1,WHITE);
   label("PASS: "+v6Password,12,158,1,WHITE);
   label("OPEN: 192.168.4.1",12,173,1,ACCENT);
-  label("Pin mapping: pending",12,57,1,ORANGE);
-  label("WiFi setup: pending",12,79,1,ORANGE);
+  label("ADMIN TOKEN:",12,43,1,ORANGE);
+  label(V61WiFi::adminToken,12,57,1,WHITE);
+  label("WiFi manager: /wifi",12,79,1,GREEN);
   label("Saved configs: pending",12,101,1,ORANGE);backButton();break;
  case LOGS:
   label("Runtime event log",12,58,1);
@@ -201,9 +203,9 @@ void scanBle(){v6Log("BLE scan started");
  scanner->clearResults();draw();
 }
 void enter(Page p,Page from){if(historyDepth<12)history[historyDepth++]=page;parent=from;page=p;draw();}
-void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();initStorage();Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
+void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();V61WiFi::start();v6SSID=V61WiFi::apSSID;v6Password=V61WiFi::apPassword;V61WiFi::routes(v6Server);initStorage();Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
- v6Server.handleClient();
+ v6Server.handleClient();V61WiFi::tick();
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
  if(pressed&&page==TOUCH&&y<185)lcd.fillCircle(x,y,3,BLUE);
  if(pressed&&!lastPressed&&millis()-lastTouch>220){
