@@ -1,0 +1,37 @@
+name: NAT compatibility probe (manual only)
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: pip install platformio
+      - name: Inspect compiled lwIP and NAT symbols
+        shell: bash
+        run: |
+          set -euo pipefail
+          pio pkg install -e es3c28p
+          python - <<'PY'
+          import pathlib
+          roots=list(pathlib.Path.home().glob('.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/lib/liblwip.a'))
+          print('lwIP archive:', roots)
+          for root in roots:
+              print('Archive size:', root.stat().st_size)
+          headers=list(pathlib.Path.home().glob('.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/include/lwip/lwip/src/include/lwip/lwip_napt.h'))
+          print('NAPT headers:', headers)
+          PY
+          LIB="$HOME/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32s3/lib/liblwip.a"
+          if [ -f "$LIB" ]; then
+            NM=$(find "$HOME/.platformio/packages" -type f -name 'xtensa-esp32s3-elf-nm' -print -quit)
+            if [ -n "$NM" ]; then
+              "$NM" -g "$LIB" | grep -E ' (T|W) (ip_napt_enable|ip_napt_enable_no|ip_napt_init)$' || echo 'NAT symbols not found in prebuilt lwIP'
+            else
+              echo 'nm tool not found; symbol check skipped'
+            fi
+          else
+            echo 'lwIP archive not found at expected path'
+          fi
