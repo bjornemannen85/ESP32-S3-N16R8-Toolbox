@@ -12,6 +12,9 @@
 // One transfer at a time, <=8192 bytes, CRC32 verified before commit.
 namespace V61BleTransfer {
 static bool running=false,receiving=false;
+static String sessionCode;
+static unsigned long lastPacket=0;
+static const unsigned long TRANSFER_TIMEOUT_MS=60000;
 static BLEServer *server=nullptr;
 static BLECharacteristic *dataChar=nullptr;
 static String name;
@@ -22,13 +25,19 @@ static String lastResult="idle";
 static uint32_t crc32(const String &s){uint32_t c=0xFFFFFFFF;for(size_t i=0;i<s.length();++i){c^=(uint8_t)s[i];for(int b=0;b<8;b++)c=(c>>1)^((c&1)?0xEDB88320UL:0);}return ~c;}
 static void reset(){receiving=false;name="";payload="";expectedSize=0;expectedCRC=0;}
 static void command(const std::string &value){
+  if(receiving && millis()-lastPacket>TRANSFER_TIMEOUT_MS){reset();lastResult="transfer timeout";}
+  lastPacket=millis();
   if(value.size()>512){lastResult="chunk too large";reset();return;}
   String v;v.reserve(value.size());for(char c:value)v+=(char)c;
   if(v=="CANCEL"){reset();lastResult="cancelled";return;}
   if(v.startsWith("BEGIN|")){
     reset();int a=v.indexOf('|',6),b=a<0?-1:v.indexOf('|',a+1);
     if(a<0||b<0){lastResult="bad BEGIN";return;}
-    name=v.substring(6,a);String len=v.substring(a+1,b),crc=v.substring(b+1);
+    name=v.substring(6,a);String len=v.substring(a+1,b),tail=v.substring(b+1);
+    int sep=tail.indexOf('|');
+    if(sep<0){lastResult="session code required";return;}
+    String crc=tail.substring(0,sep),provided=tail.substring(sep+1);
+    if(!running||sessionCode.length()!=6||provided!=sessionCode){lastResult="unauthorized transfer";return;}
     for(char c:len)if(c<'0'||c>'9'){lastResult="bad length";return;}
     if(crc.length()!=8){lastResult="bad crc";return;}
     for(char c:crc)if(!isxdigit((unsigned char)c)){lastResult="bad crc";return;}
@@ -57,6 +66,7 @@ static Receiver receiver;
 static bool start(){
  if(running)return true;
  if(!V61Scripts::ready){lastResult="LittleFS unavailable";return false;}
+ sessionCode=String(100000+(esp_random()%900000));
  BLEDevice::init("Cyberdeck-V61-Transfer");
  server=BLEDevice::createServer();
  BLEService *svc=server->createService("8efbf6f0-5a0b-4f44-83a8-85b615ad0100");
@@ -65,12 +75,15 @@ static bool start(){
  BLEAdvertising *adv=BLEDevice::getAdvertising();adv->addServiceUUID(svc->getUUID());adv->start();
  running=true;lastResult="advertising";return true;
 }
-static void stop(){if(!running)return;BLEDevice::getAdvertising()->stop();BLEDevice::deinit(true);server=nullptr;dataChar=nullptr;running=false;reset();lastResult="stopped";}
-static String status(){return String("{\"enabled\":")+(running?"true":"false")+",\"receiving\":"+(receiving?"true":"false")+",\"bytes\":"+String(payload.length())+",\"expected\":"+String(expectedSize)+",\"result\":\""+V61WiFi::escapeJson(lastResult)+"\",\"hardware_tested\":false}";}
+static void stop(){if(!running)return;BLEDevice::getAdvertising()->stop();BLEDevice::deinit(true);server=nullptr;dataChar=nullptr;running=false;sessionCode="";reset();lastResult="stopped";}
+static String status(){
+ if(receiving && millis()-lastPacket>TRANSFER_TIMEOUT_MS){reset();lastResult="transfer timeout";}
+ return String("{\"enabled\":")+(running?"true":"false")+",\"receiving\":"+(receiving?"true":"false")+",\"bytes\":"+String(payload.length())+",\"expected\":"+String(expectedSize)+",\"result\":\""+V61WiFi::escapeJson(lastResult)+"\",\"hardware_tested\":false}";}
 static void routes(WebServer &s){
  s.on("/api/v61/ble-transfer/status",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",status());});
+ s.on("/api/v61/ble-transfer/code",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",String("{\"code\":\"")+sessionCode+"\",\"enabled\":"+(running?"true":"false")+"}");});
  s.on("/api/v61/ble-transfer/start",HTTP_POST,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);bool ok=start();s.send(ok?200:503,"application/json",status());});
  s.on("/api/v61/ble-transfer/stop",HTTP_POST,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);stop();s.send(200,"application/json",status());});
- s.on("/toolbox/ble-transfer",HTTP_GET,[&s](){s.send(200,"text/html; charset=utf-8",R"HTML(<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="utf-8"><title>Cyberdeck BLE Transfer</title><style>body{font:16px sans-serif;background:#071729;color:#def;max-width:680px;margin:auto;padding:18px}button,input{padding:10px;margin:6px;background:#18324b;color:white;border:1px solid #4cf;border-radius:6px}pre{white-space:pre-wrap}</style><h2>BLE file receiver (experimental)</h2><p>Manual start only. Max 8192 bytes. Saved files are NOT executed. Test only with your own paired/trusted devices. BLE writes currently have no application-layer authentication; disable the receiver when not in use.</p><input id=t type=password placeholder="Admin token"><button onclick="req('status')">Status</button><button onclick="req('start')">Enable receiver</button><button onclick="req('stop')">STOP receiver</button><pre id=o></pre><p>Service 8efbf6f0-5a0b-4f44-83a8-85b615ad0100, writable characteristic ...0101. Protocol: BEGIN|filename.txt|length|CRC32HEX, DATA:binary chunk, END or CANCEL.</p><script>async function req(op){let r=await fetch('/api/v61/ble-transfer/'+op,{method:op==='status'?'GET':'POST',headers:{'X-Cyberdeck-Token':t.value}});o.textContent=r.status+' '+await r.text()}</script>)HTML");});
+ s.on("/toolbox/ble-transfer",HTTP_GET,[&s](){s.send(200,"text/html; charset=utf-8",R"HTML(<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="utf-8"><title>Cyberdeck BLE Transfer</title><style>body{font:16px sans-serif;background:#071729;color:#def;max-width:680px;margin:auto;padding:18px}button,input{padding:10px;margin:6px;background:#18324b;color:white;border:1px solid #4cf;border-radius:6px}pre{white-space:pre-wrap}</style><h2>BLE file receiver (experimental)</h2><p>Manual start only. Max 8192 bytes. Saved files are NOT executed. Test only with your own paired/trusted devices. BLE writes currently have no application-layer authentication; disable the receiver when not in use.</p><input id=t type=password placeholder="Admin token"><button onclick="req('status')">Status</button><button onclick="code()">Session code</button><button onclick="req('start')">Enable receiver</button><button onclick="req('stop')">STOP receiver</button><pre id=o></pre><p>Service 8efbf6f0-5a0b-4f44-83a8-85b615ad0100, writable characteristic ...0101. Protocol: BEGIN|filename.txt|length|CRC32HEX|SESSION_CODE, DATA:binary chunk, END or CANCEL.</p><script>async function code(){let r=await fetch('/api/v61/ble-transfer/code',{headers:{'X-Cyberdeck-Token':t.value}});o.textContent=r.status+' '+await r.text()}async function req(op){let r=await fetch('/api/v61/ble-transfer/'+op,{method:op==='status'?'GET':'POST',headers:{'X-Cyberdeck-Token':t.value}});o.textContent=r.status+' '+await r.text()}</script>)HTML");});
 }
 }
