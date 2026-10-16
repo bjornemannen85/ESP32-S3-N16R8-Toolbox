@@ -15,14 +15,14 @@ Adafruit_ILI9341 lcd(&lcdSPI,LCD_DC,LCD_CS,-1);
 constexpr uint16_t BG=0x0008,PANEL=0x1084,ACCENT=0x05FF,WHITE=0xFFFF,MUTED=0x9CF3,ORANGE=0xFD20;
 constexpr uint16_t BLUE=0x047F,PURPLE=0xA81F,GREEN=0x07E0,RED=0xF945,YELLOW=0xFFE0;
 
-enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES };
+enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, PAGE_GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES };
 Page page=HOME, parent=HOME;
 bool lastPressed=false,touchOK=false,bleReady=false;
 uint32_t lastTouch=0,lastSystemDraw=0;
 String wifiLines[7],bleLines[7]; int wifiCount=-1,bleCount=-1;
-const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER"};
+const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","PAGE_GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER"};
 const Page radioItems[]={WIFI,BLE,NFC,SUBGHZ,IR};
-const Page hwItems[]={GPIO,UART,I2C,SPI_DIAG,STORAGE,MODULES};
+const Page hwItems[]={PAGE_GPIO,UART,I2C,SPI_DIAG,STORAGE,MODULES};
 const Page toolItems[]={SYSTEM,TOUCH,SETTINGS,LOGS};
 
 bool readTouch(uint16_t &x,uint16_t &y){
@@ -34,7 +34,7 @@ bool readTouch(uint16_t &x,uint16_t &y){
   x=constrain((int)ry,0,319);y=constrain(239-(int)rx,0,239);return true;
 }
 void label(const String &s,int x,int y,uint8_t sz=2,uint16_t color=WHITE){lcd.setTextSize(sz);lcd.setTextColor(color);lcd.setCursor(x,y);lcd.print(s);}
-uint16_t tileColor(Page p){switch(p){case WIFI:case RADIO:return ACCENT;case BLE:return BLUE;case NFC:return PURPLE;case SUBGHZ:return ORANGE;case IR:return RED;case GPIO:return GREEN;case UART:return ACCENT;case I2C:case SPI_DIAG:return YELLOW;case SYSTEM:return BLUE;case STORAGE:return BLUE;default:return MUTED;}}
+uint16_t tileColor(Page p){switch(p){case WIFI:case RADIO:return ACCENT;case BLE:return BLUE;case NFC:return PURPLE;case SUBGHZ:return ORANGE;case IR:return RED;case PAGE_GPIO:return GREEN;case UART:return ACCENT;case I2C:case SPI_DIAG:return YELLOW;case SYSTEM:return BLUE;case STORAGE:return BLUE;default:return MUTED;}}
 void tile(int x,int y,int w,int h,const String &title,Page target){
  uint16_t c=tileColor(target);
  lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,c);
@@ -44,6 +44,7 @@ void tile(int x,int y,int w,int h,const String &title,Page target){
  label(title,x+41,y+13,1,WHITE);
 }
 void button(int x,int y,int w,int h,const String &s){lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,ACCENT);label(s,x+10,y+(h-16)/2,2);}
+String clipped(String s,size_t maxLen);
 void header(const String &s){lcd.fillScreen(BG);lcd.fillRect(0,0,320,33,PANEL);lcd.drawFastHLine(0,33,320,ACCENT);label(clipped(s,25),8,9,1,ACCENT);}
 void backButton(){button(8,198,104,35,"BACK");}
 void footer(const String &s){label(s,9,235,1,MUTED);}
@@ -83,11 +84,11 @@ void draw(){
   label("CC1101: NOT CONFIGURED",8,76,1,ORANGE);
   label("IR: NOT CONFIGURED",8,100,1,ORANGE);
   label("SD: NOT MOUNTED",8,124,1,ORANGE);
-  label("No GPIO assignments yet",8,155,1,MUTED);backButton();break;
- case NFC:case SUBGHZ:case IR:case GPIO:case UART:case I2C:case SPI_DIAG:case STORAGE:
+  label("No PAGE_GPIO assignments yet",8,155,1,MUTED);backButton();break;
+ case NFC:case SUBGHZ:case IR:case PAGE_GPIO:case UART:case I2C:case SPI_DIAG:case STORAGE:
   label("NOT CONFIGURED",12,65,2,ORANGE);
   label("Hardware / pins pending",12,103,1,MUTED);
-  label("No GPIO activity",12,122,1,MUTED);backButton();break;
+  label("No PAGE_GPIO activity",12,122,1,MUTED);backButton();break;
  case SETTINGS:
   label("Pin mapping: pending",12,57,1,ORANGE);
   label("WiFi setup: pending",12,79,1,ORANGE);
