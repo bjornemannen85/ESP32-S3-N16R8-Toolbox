@@ -79,12 +79,17 @@ static void command(const std::string &value){
   if(payload.length()+n>expectedSize){lastResult="size exceeded";reset();return;}
   for(size_t i=5;i<value.size();++i)payload+=(char)value[i];
 }
-class Receiver:public BLECharacteristicCallbacks {void onWrite(BLECharacteristic *c) override {#if defined(V61_IDF_NAT_BUILD) && V61_IDF_NAT_BUILD
+class Receiver : public BLECharacteristicCallbacks {
+public:
+  void onWrite(BLECharacteristic *c) override {
+#if defined(V61_IDF_NAT_BUILD) && V61_IDF_NAT_BUILD
     String value = c->getValue();
     command(std::string(value.c_str(), value.length()));
 #else
     command(c->getValue());
-#endif}};
+#endif
+  }
+};
 static Receiver receiver;
 static bool start(){
  if(running)return true;
