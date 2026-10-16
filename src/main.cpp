@@ -17,6 +17,18 @@ constexpr uint16_t BLUE=0x047F,PURPLE=0xA81F,GREEN=0x07E0,RED=0xF945,YELLOW=0xFF
 
 enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, PAGE_GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES };
 Page page=HOME, parent=HOME;
+void draw();
+Page history[12];
+int historyDepth=0;
+
+void goBack(){
+  if(historyDepth>0){
+    page=history[--historyDepth];
+  }else{
+    page=HOME;
+  }
+  draw();
+}
 bool lastPressed=false,touchOK=false,bleReady=false;
 uint32_t lastTouch=0,lastSystemDraw=0;
 String wifiLines[7],bleLines[7]; int wifiCount=-1,bleCount=-1;
@@ -101,7 +113,12 @@ void draw(){
 }
 void scanWifi(){header("WIFI SCANNING...");for(auto &s:wifiLines)s="";WiFi.mode(WIFI_STA);WiFi.disconnect(false,false);delay(100);int n=WiFi.scanNetworks(false,true);wifiCount=n<0?0:n;for(int i=0;i<n&&i<7;i++){String ssid=WiFi.SSID(i);if(!ssid.length())ssid="<hidden>";wifiLines[i]=clipped(ssid,20)+" "+String(WiFi.RSSI(i))+"dBm ch"+String(WiFi.channel(i));}WiFi.scanDelete();draw();}
 void scanBle(){header("BLE SCANNING...");for(auto &s:bleLines)s="";if(!bleReady){BLEDevice::init("");bleReady=true;}BLEScan *s=BLEDevice::getScan();s->setActiveScan(false);BLEScanResults results=s->start(4,false);bleCount=results.getCount();for(int i=0;i<bleCount&&i<7;i++){BLEAdvertisedDevice d=results.getDevice(i);String name=d.haveName()?String(d.getName().c_str()):String(d.getAddress().toString().c_str());bleLines[i]=clipped(name,24)+" "+String(d.getRSSI())+"dBm";}s->clearResults();draw();}
-void enter(Page p,Page from){parent=from;page=p;draw();}
+void enter(Page p,Page from){
+  if(historyDepth<12) history[historyDepth++]=page;
+  parent=from;
+  page=p;
+  draw();
+}
 void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);Serial.printf("ES3C28P V4.8 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
@@ -112,7 +129,7 @@ void loop(){
    if(y>=43&&y<88)enter(x<160?RADIO:HARDWARE,HOME);
    else if(y>=94&&y<139)enter(x<160?TOOLS:SYSTEM,HOME);
    else if(y>=145&&y<190)enter(x<160?WIFI:BLE,HOME);
-  }else if(y>=198&&x<120){page=parent;draw();}
+  }else if(y>=190&&x<125){goBack();}
   else if(page==RADIO||page==HARDWARE||page==TOOLS){
    const Page *items=page==RADIO?radioItems:page==HARDWARE?hwItems:toolItems;
    int count=page==RADIO?5:page==HARDWARE?6:4;
