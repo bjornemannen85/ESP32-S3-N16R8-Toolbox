@@ -22,7 +22,9 @@ Page history[12]; int historyDepth=0;
 void goBack(){page=historyDepth>0?history[--historyDepth]:HOME;draw();}
 bool lastPressed=false,touchOK=false,bleReady=false;
 uint32_t lastTouch=0,lastSystemDraw=0;
-String wifiLines[7],bleLines[7]; int wifiCount=-1,bleCount=-1;
+String wifiLines[40],bleLines[40]; int wifiCount=-1,bleCount=-1;
+int wifiStored=0,bleStored=0,wifiOffset=0,bleOffset=0;
+int wifiRssi[40]={0},bleRssi[40]={0};
 const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER"};
 const Page radioItems[]={WIFI,BLE,NFC,SUBGHZ,IR};
 const Page hwItems[]={PAGE_GPIO,UART,I2C,SPI_DIAG,STORAGE,MODULES};
@@ -70,7 +72,7 @@ void menu(const Page *items,int count){
  backButton();
 }
 void draw(){
- header(page==HOME?"CYBERDECK V5.0 NEON":names[page]);
+ header(page==HOME?"CYBERDECK V5.1 NEON":names[page]);
  switch(page){
  case HOME:{
   const Page homeItems[]={WIFI,BLE,NFC,SUBGHZ,IR,PAGE_GPIO,UART,I2C,STORAGE,SYSTEM,SETTINGS,TOOLS};
@@ -79,7 +81,7 @@ void draw(){
    int col=i%4,row=i/4;
    tile(5+col*79,39+row*59,73,54,homeNames[i],homeItems[i]);
   }
-  label("ES3C28P  V5.0  SAFE MODE",6,223,1,MUTED);break;
+  label("ES3C28P  V5.1  SAFE MODE",6,223,1,MUTED);break;
  }
  case RADIO: menu(radioItems,5);break;
  case HARDWARE: menu(hwItems,6);break;
@@ -103,14 +105,30 @@ void draw(){
   break;
  }
  case TOUCH:label("Draw on screen",10,52);backButton();break;
- case WIFI:
-  label(wifiCount<0?"Press SCAN":String("Networks: ")+wifiCount,10,43,1,MUTED);
-  for(int i=0;i<7;i++)if(wifiLines[i].length())label(wifiLines[i],10,61+i*18,1);
-  backButton();button(174,195,138,37,"SCAN");break;
- case BLE:
-  label(bleCount<0?"Press SCAN":String("Devices: ")+bleCount,10,43,1,MUTED);
-  for(int i=0;i<7;i++)if(bleLines[i].length())label(bleLines[i],10,61+i*18,1);
-  backButton();button(174,195,138,37,"SCAN");break;
+ case WIFI:case BLE:{
+  bool isWifi=page==WIFI;
+  int total=isWifi?wifiCount:bleCount;
+  int stored=isWifi?wifiStored:bleStored;
+  int offset=isWifi?wifiOffset:bleOffset;
+  label(total<0?"Press SCAN":String(isWifi?"Networks: ":"Devices: ")+String(total),10,40,1,MUTED);
+  if(total>stored)label(String("Showing first ")+String(stored),184,40,1,ORANGE);
+  for(int i=0;i<5;i++){
+    int idx=offset+i;if(idx>=stored)break;
+    int y=56+i*26;
+    lcd.drawRoundRect(8,y,304,24,4,BLUE);
+    String name=isWifi?wifiLines[idx]:bleLines[idx];
+    int rssi=isWifi?wifiRssi[idx]:bleRssi[idx];
+    label(clipped(name,29),13,y+4,1,WHITE);
+    label(String(rssi),245,y+4,1,MUTED);
+    int bars=rssi>=-55?4:rssi>=-67?3:rssi>=-78?2:rssi>=-90?1:0;
+    for(int j=0;j<4;j++)lcd.fillRect(215+j*6,y+17-j*3,4,3+j*3,j<bars?GREEN:MUTED);
+  }
+  backButton();
+  button(119,198,56,35,"<");
+  button(179,198,56,35,">");
+  button(240,198,72,35,"SCAN");
+  break;
+ }
  case MODULES:
   label("PN532: NOT CONFIGURED",8,52,1,ORANGE);
   label("CC1101: NOT CONFIGURED",8,76,1,ORANGE);
@@ -131,8 +149,35 @@ void draw(){
   label(touchOK?"Touch OK":"Touch unavailable",12,102,1,MUTED);backButton();break;
  }
 }
-void scanWifi(){header("WIFI SCANNING...");for(auto &s:wifiLines)s="";WiFi.mode(WIFI_STA);WiFi.disconnect(false,false);delay(100);int n=WiFi.scanNetworks(false,true);wifiCount=n<0?0:n;for(int i=0;i<n&&i<7;i++){String ssid=WiFi.SSID(i);if(!ssid.length())ssid="<hidden>";wifiLines[i]=clipped(ssid,20)+" "+String(WiFi.RSSI(i))+"dBm ch"+String(WiFi.channel(i));}WiFi.scanDelete();draw();}
-void scanBle(){header("BLE SCANNING...");for(auto &s:bleLines)s="";if(!bleReady){BLEDevice::init("");bleReady=true;}BLEScan *s=BLEDevice::getScan();s->setActiveScan(false);BLEScanResults results=s->start(4,false);bleCount=results.getCount();for(int i=0;i<bleCount&&i<7;i++){BLEAdvertisedDevice d=results.getDevice(i);String name=d.haveName()?String(d.getName().c_str()):String(d.getAddress().toString().c_str());bleLines[i]=clipped(name,24)+" "+String(d.getRSSI())+"dBm";}s->clearResults();draw();}
+void scanWifi(){
+ header("WIFI SCANNING...");
+ for(auto &line:wifiLines)line="";
+ wifiStored=0;wifiOffset=0;
+ WiFi.mode(WIFI_STA);WiFi.disconnect(false,false);delay(100);
+ int n=WiFi.scanNetworks(false,true);wifiCount=n<0?0:n;
+ wifiStored=min(wifiCount,40);
+ for(int i=0;i<wifiStored;i++){
+   String name=WiFi.SSID(i);if(!name.length())name="<hidden>";
+   wifiLines[i]=clipped(name,28)+" ch"+String(WiFi.channel(i));
+   wifiRssi[i]=WiFi.RSSI(i);
+ }
+ WiFi.scanDelete();draw();
+}
+void scanBle(){
+ header("BLE SCANNING...");
+ for(auto &line:bleLines)line="";
+ bleStored=0;bleOffset=0;
+ if(!bleReady){BLEDevice::init("");bleReady=true;}
+ BLEScan *scanner=BLEDevice::getScan();scanner->setActiveScan(false);
+ BLEScanResults results=scanner->start(4,false);
+ bleCount=results.getCount();bleStored=min(bleCount,40);
+ for(int i=0;i<bleStored;i++){
+   BLEAdvertisedDevice d=results.getDevice(i);
+   bleLines[i]=d.haveName()?String(d.getName().c_str()):String(d.getAddress().toString().c_str());
+   bleRssi[i]=d.getRSSI();
+ }
+ scanner->clearResults();draw();
+}
 void enter(Page p,Page from){if(historyDepth<12)history[historyDepth++]=page;parent=from;page=p;draw();}
 void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
@@ -156,8 +201,16 @@ void loop(){
    if(y>=42&&y<183){int row=(int(y)-42)/49,col=x<160?0:1,index=row*2+col;
     if(index>=0&&index<count&&y<42+row*49+43)enter(items[index],page);
    }
-  }else if(y>=195&&x>=174&&page==WIFI)scanWifi();
-  else if(y>=195&&x>=174&&page==BLE)scanBle();
+  }else if((page==WIFI||page==BLE)&&y>=195&&x>=119){
+    if(x>=240){if(page==WIFI)scanWifi();else scanBle();}
+    else{
+      int &offset=page==WIFI?wifiOffset:bleOffset;
+      int stored=page==WIFI?wifiStored:bleStored;
+      if(x<179)offset=max(0,offset-5);
+      else if(offset+5<stored)offset+=5;
+      draw();
+    }
+  }
  }
  lastPressed=pressed;
  if(page==SYSTEM&&millis()-lastSystemDraw>2500){lastSystemDraw=millis();draw();}
