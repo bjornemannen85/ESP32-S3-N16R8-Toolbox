@@ -4,7 +4,7 @@ idf_component_register(
         "cyberdeck.cpp"
     INCLUDE_DIRS
         "."
-        "../../../src"
+        "../../src"
     REQUIRES
         arduino-esp32
         esp_wifi
