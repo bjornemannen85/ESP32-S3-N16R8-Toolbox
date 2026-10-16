@@ -7,7 +7,7 @@
 // Compile/link probe only: no radio, AP, credentials or NAT enabled.
 extern "C" void app_main(void) {
     initArduino();
-    volatile void (*nat_api)(u32_t, int) = ip_napt_enable;
+    void (*volatile nat_api)(u32_t, int) = ip_napt_enable;
     (void)nat_api;
     ESP_LOGI("v61_probe", "Arduino+ESP-IDF NAT symbols linked; Wi-Fi OFF");
 }
