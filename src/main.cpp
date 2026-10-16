@@ -70,7 +70,7 @@ void menu(const Page *items,int count){
  backButton();
 }
 void draw(){
- header(page==HOME?"CYBERDECK V4.9.1":names[page]);
+ header(page==HOME?"CYBERDECK V5.0 NEON":names[page]);
  switch(page){
  case HOME:{
   const Page homeItems[]={WIFI,BLE,NFC,SUBGHZ,IR,PAGE_GPIO,UART,I2C,STORAGE,SYSTEM,SETTINGS,TOOLS};
@@ -79,17 +79,29 @@ void draw(){
    int col=i%4,row=i/4;
    tile(5+col*79,39+row*59,73,54,homeNames[i],homeItems[i]);
   }
-  label("ES3C28P  V4.9.1  SAFE MODE",6,223,1,MUTED);break;
+  label("ES3C28P  V5.0  SAFE MODE",6,223,1,MUTED);break;
  }
  case RADIO: menu(radioItems,5);break;
  case HARDWARE: menu(hwItems,6);break;
  case TOOLS: menu(toolItems,4);break;
- case SYSTEM:
-  label("Flash: "+String(ESP.getFlashChipSize()/1048576)+" MB",10,48);
-  label("PSRAM: "+String(ESP.getPsramSize()/1048576)+" MB",10,76);
-  label("Heap: "+String(ESP.getFreeHeap()/1024)+" KB",10,104);
-  label("Uptime: "+String(millis()/1000)+" s",10,132);
-  label("CPU: "+String(ESP.getCpuFreqMHz())+" MHz",10,161,1,MUTED);backButton();break;
+
+ case SYSTEM:{
+  int vals[]={int(ESP.getCpuFreqMHz()),
+    int(ESP.getFreeHeap()/1024),
+    int(ESP.getPsramSize()/1048576),
+    int(ESP.getFlashChipSize()/1048576)};
+  const char* titles[]={"CPU MHz","HEAP KB","PSRAM MB","FLASH MB"};
+  uint16_t colors[]={ACCENT,GREEN,PURPLE,ORANGE};
+  for(int i=0;i<4;i++){
+    int x=8+(i%2)*156,y=42+(i/2)*74;
+    lcd.fillRoundRect(x,y,148,66,7,PANEL);
+    lcd.drawRoundRect(x,y,148,66,7,colors[i]);
+    label(titles[i],x+9,y+9,1,colors[i]);
+    label(String(vals[i]),x+9,y+30,2,WHITE);
+  }
+  backButton();
+  break;
+ }
  case TOUCH:label("Draw on screen",10,52);backButton();break;
  case WIFI:
   label(wifiCount<0?"Press SCAN":String("Networks: ")+wifiCount,10,43,1,MUTED);
