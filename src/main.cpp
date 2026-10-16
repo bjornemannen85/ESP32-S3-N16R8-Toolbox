@@ -7,6 +7,7 @@
 #include "v61_wifi.h"
 #include "v61_scripts.h"
 #include "v61_mega.h"
+#include "v61_bundle.h"
 #include <BLEDevice.h>
 #include <BLEScan.h>
 #include <Adafruit_GFX.h>
@@ -247,7 +248,7 @@ void scanBle(){v6Log("BLE scan started");
  scanner->clearResults();draw();
 }
 void enter(Page p,Page from){if(historyDepth<12)history[historyDepth++]=page;parent=from;page=p;draw();}
-void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();V61WiFi::start();v6SSID=V61WiFi::apSSID;v6Password=V61WiFi::apPassword;wifiEditApSSID=v6SSID;V61WiFi::routes(v6Server);V61Scripts::begin();V61Scripts::routes(v6Server);V61Mega::routes(v6Server);/* SDMMC pin map not yet verified: initStorage() disabled */ Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
+void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();V61WiFi::start();v6SSID=V61WiFi::apSSID;v6Password=V61WiFi::apPassword;wifiEditApSSID=v6SSID;V61WiFi::routes(v6Server);V61Scripts::begin();V61Scripts::routes(v6Server);V61Mega::routes(v6Server);V61Bundle::routes(v6Server);/* SDMMC pin map not yet verified: initStorage() disabled */ Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
  v6Server.handleClient();V61WiFi::tick();
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
