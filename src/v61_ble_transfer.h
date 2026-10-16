@@ -20,6 +20,7 @@ static const unsigned long LOCKOUT_MS=120000;
 static unsigned long sessionStarted=0, lockoutUntil=0;
 static uint8_t badAttempts=0;
 static bool lockedOut(){return lockoutUntil && (int32_t)(millis()-lockoutUntil)<0;}
+static String lastResult="idle";
 static void reset();
 static void tick(){
  if(receiving && millis()-lastPacket>TRANSFER_TIMEOUT_MS){reset();lastResult="transfer timeout";}
@@ -33,7 +34,7 @@ static String name;
 static String payload;
 static uint32_t expectedCRC=0;
 static size_t expectedSize=0;
-static String lastResult="idle";
+
 static uint32_t crc32(const String &s){uint32_t c=0xFFFFFFFF;for(size_t i=0;i<s.length();++i){c^=(uint8_t)s[i];for(int b=0;b<8;b++)c=(c>>1)^((c&1)?0xEDB88320UL:0);}return ~c;}
 static void reset(){receiving=false;name="";payload="";expectedSize=0;expectedCRC=0;}
 static void command(const std::string &value){
