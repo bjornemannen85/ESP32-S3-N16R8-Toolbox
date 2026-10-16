@@ -60,6 +60,7 @@ void tile(int x,int y,int w,int h,const String &title,Page target){
  lcd.setCursor(x+(w-(int)t.length()*6)/2,y+h-14);lcd.print(t);
 }
 void button(int x,int y,int w,int h,const String &s){lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,ACCENT);label(s,x+10,y+(h-16)/2,2);}
+String clipped(String s,size_t n);
 void header(const String &s){lcd.fillScreen(BG);lcd.fillRect(0,0,320,33,PANEL);lcd.drawFastHLine(0,33,320,ACCENT);label(clipped(s,25),8,9,1,ACCENT);}
 void backButton(){button(8,198,104,35,"BACK");}
 void footer(const String &s){label(s,9,235,1,MUTED);}
@@ -121,7 +122,7 @@ void draw(){
 void scanWifi(){header("WIFI SCANNING...");for(auto &s:wifiLines)s="";WiFi.mode(WIFI_STA);WiFi.disconnect(false,false);delay(100);int n=WiFi.scanNetworks(false,true);wifiCount=n<0?0:n;for(int i=0;i<n&&i<7;i++){String ssid=WiFi.SSID(i);if(!ssid.length())ssid="<hidden>";wifiLines[i]=clipped(ssid,20)+" "+String(WiFi.RSSI(i))+"dBm ch"+String(WiFi.channel(i));}WiFi.scanDelete();draw();}
 void scanBle(){header("BLE SCANNING...");for(auto &s:bleLines)s="";if(!bleReady){BLEDevice::init("");bleReady=true;}BLEScan *s=BLEDevice::getScan();s->setActiveScan(false);BLEScanResults results=s->start(4,false);bleCount=results.getCount();for(int i=0;i<bleCount&&i<7;i++){BLEAdvertisedDevice d=results.getDevice(i);String name=d.haveName()?String(d.getName().c_str()):String(d.getAddress().toString().c_str());bleLines[i]=clipped(name,24)+" "+String(d.getRSSI())+"dBm";}s->clearResults();draw();}
 void enter(Page p,Page from){if(historyDepth<12)history[historyDepth++]=page;parent=from;page=p;draw();}
-void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);Serial.printf("ES3C28P V4.8 touch=%s\n",touchOK?"YES":"NO");draw();}
+void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
  if(pressed&&page==TOUCH&&y<185)lcd.fillCircle(x,y,3,BLUE);
