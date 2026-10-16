@@ -28,7 +28,38 @@ static String preview(const String &body){
  }
  return out+"]}";
 }
+// V61_BUNDLE_7_9: safe script validation, manifest, and diagnostics.
+static String inspect(const String &body){
+ int lines=0,recognized=0,unknown=0;size_t pos=0;
+ while(pos<body.length()&&lines<500){int end=body.indexOf('\n',pos);if(end<0)end=body.length();
+  String line=body.substring(pos,end);line.trim();pos=end+1;
+  if(!line.length()||line.startsWith("#")||line.startsWith("REM "))continue;
+  ++lines;int sp=line.indexOf(' ');String op=sp<0?line:line.substring(0,sp);op.toUpperCase();
+  if(op=="STRING"||op=="DELAY"||op=="ENTER"||op=="TAB"||op=="ESC")++recognized;else ++unknown;
+ }
+ return String("{\"execution\":false,\"lines\":")+lines+",\"recognized\":"+recognized+",\"unknown\":"+unknown+"}";
+}
 static void routes(WebServer &s){
+ s.on("/scripts/inspect",HTTP_GET,[&s](){
+  if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
+  String n=s.arg("name");if(!validName(n)||!(n.endsWith(".duck")||n.endsWith(".ds")||n.endsWith(".txt"))){s.send(400,"text/plain","Invalid macro filename");return;}
+  if(!ready){s.send(503,"text/plain","Storage unavailable");return;}
+  File f=LittleFS.open(path(n),"r");if(!f){s.send(404,"text/plain","Not found");return;}
+  if(f.size()>MAX_SCRIPT){f.close();s.send(413,"text/plain","File too large");return;}
+  String body=f.readString();f.close();s.send(200,"application/json",inspect(body));
+ });
+ s.on("/scripts/manifest",HTTP_GET,[&s](){
+  if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
+  if(!ready){s.send(503,"text/plain","Storage unavailable");return;}
+  File dir=LittleFS.open("/scripts");if(!dir||!dir.isDirectory()){s.send(500,"text/plain","Directory unavailable");return;}
+  String out="{\"storage\":\"LittleFS\",\"execution\":false,\"files\":[";bool first=true;size_t total=0;int count=0;
+  File f=dir.openNextFile();while(f){String n=String(f.name());int slash=n.lastIndexOf('/');if(slash>=0)n=n.substring(slash+1);
+   if(!f.isDirectory()&&validName(n)){if(!first)out+=",";first=false;out+="{\"name\":\""+V61WiFi::escapeJson(n)+"\",\"bytes\":"+String(f.size())+"}";total+=f.size();++count;}
+   f=dir.openNextFile();
+  }
+  out+=String("],\"count\":")+count+",\"total_bytes\":"+String(total)+"}";
+  s.sendHeader("Content-Disposition","attachment; filename=cyberdeck-manifest.json");s.send(200,"application/json",out);
+ });
  s.on("/scripts/status",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",String("{\"ready\":")+(ready?"true":"false")+",\"storage\":\"LittleFS\",\"execution\":false}");});
  s.on("/scripts/list",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);if(!ready){s.send(503,"text/plain","LittleFS unavailable");return;}File dir=LittleFS.open("/scripts");if(!dir||!dir.isDirectory()){s.send(500,"text/plain","Directory unavailable");return;}String out="[";bool first=true;File f=dir.openNextFile();while(f){String n=String(f.name());int slash=n.lastIndexOf('/');if(slash>=0)n=n.substring(slash+1);if(!f.isDirectory()&&validName(n)){if(!first)out+=",";first=false;out+="{\"name\":\""+V61WiFi::escapeJson(n)+"\",\"bytes\":"+String(f.size())+"}";}f=dir.openNextFile();}s.send(200,"application/json",out+"]");});
  s.on("/scripts/read",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);String n=s.arg("name");if(!validName(n)){s.send(400,"text/plain","Invalid filename");return;}if(!ready){s.send(503,"text/plain","Storage unavailable");return;}File f=LittleFS.open(path(n),"r");if(!f){s.send(404,"text/plain","Not found");return;}if(f.size()>MAX_SCRIPT){f.close();s.send(413,"text/plain","File too large");return;}String body=f.readString();f.close();s.send(200,"text/plain; charset=utf-8",body);});
@@ -51,6 +82,6 @@ static void routes(WebServer &s){
   if(f.size()>MAX_SCRIPT){f.close();s.send(413,"text/plain","File too large");return;}
   String body=f.readString();f.close();s.send(200,"application/json",preview(body));
  });
- s.on("/scripts",HTTP_GET,[&s](){s.send(200,"text/html; charset=utf-8",R"WEB(<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="utf-8"><title>Cyberdeck Script Manager</title><style>body{background:#091526;color:#def;font:16px sans-serif;max-width:760px;margin:auto;padding:15px}input,textarea,button{box-sizing:border-box;background:#152b41;color:white;border:1px solid #0cf;padding:10px;margin:5px 0;border-radius:5px}input,textarea{width:100%}textarea{height:240px}button{margin-right:8px}pre{white-space:pre-wrap}</style><h2>Cyberdeck Script Manager</h2><p>Store and edit scripts only. Execution is disabled.</p><input id="token" type="password" placeholder="Admin token"><input id="name" placeholder="example.duck"><textarea id="content" placeholder="Script contents"></textarea><button onclick="list()">List</button><button onclick="read()">Open</button><button onclick="save()">Save</button><button onclick="del()">Delete</button><button onclick="preview()">Preview macro</button><button onclick="exportFile()">Download</button><pre id="result"></pre><a href="/wifi">Wi-Fi manager</a><script>const el=id=>document.getElementById(id);async function call(url,post){const r=await fetch(url,{method:post?'POST':'GET',headers:{'X-Cyberdeck-Token':el('token').value,...(post?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:post?new URLSearchParams(post):undefined});const t=await r.text();el('result').textContent=(r.ok?'':'HTTP '+r.status+' ')+t;return r.ok?t:null}function list(){call('/scripts/list')}async function read(){const t=await call('/scripts/read?name='+encodeURIComponent(el('name').value));if(t!==null)el('content').value=t}function save(){call('/scripts/save',{name:el('name').value,content:el('content').value})}function preview(){call('/scripts/preview?name='+encodeURIComponent(el('name').value))}async function exportFile(){const r=await fetch('/scripts/export?name='+encodeURIComponent(el('name').value),{headers:{'X-Cyberdeck-Token':el('token').value}});if(!r.ok){el('result').textContent='Export failed: '+r.status;return}const blob=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=el('name').value;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}function del(){if(confirm('Delete '+el('name').value+'?'))call('/scripts/delete',{name:el('name').value})}</script>)WEB");});
+ s.on("/scripts",HTTP_GET,[&s](){s.send(200,"text/html; charset=utf-8",R"WEB(<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="utf-8"><title>Cyberdeck Script Manager</title><style>body{background:#091526;color:#def;font:16px sans-serif;max-width:760px;margin:auto;padding:15px}input,textarea,button{box-sizing:border-box;background:#152b41;color:white;border:1px solid #0cf;padding:10px;margin:5px 0;border-radius:5px}input,textarea{width:100%}textarea{height:240px}button{margin-right:8px}pre{white-space:pre-wrap}</style><h2>Cyberdeck Script Manager</h2><p>Store and edit scripts only. Execution is disabled.</p><input id="token" type="password" placeholder="Admin token"><input id="name" placeholder="example.duck"><textarea id="content" placeholder="Script contents"></textarea><button onclick="list()">List</button><button onclick="read()">Open</button><button onclick="save()">Save</button><button onclick="del()">Delete</button><button onclick="preview()">Preview macro</button><button onclick="inspectMacro()">Validate macro</button><button onclick="manifest()">Manifest</button><button onclick="exportFile()">Download</button><pre id="result"></pre><a href="/wifi">Wi-Fi manager</a><script>const el=id=>document.getElementById(id);async function call(url,post){const r=await fetch(url,{method:post?'POST':'GET',headers:{'X-Cyberdeck-Token':el('token').value,...(post?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:post?new URLSearchParams(post):undefined});const t=await r.text();el('result').textContent=(r.ok?'':'HTTP '+r.status+' ')+t;return r.ok?t:null}function list(){call('/scripts/list')}async function read(){const t=await call('/scripts/read?name='+encodeURIComponent(el('name').value));if(t!==null)el('content').value=t}function save(){call('/scripts/save',{name:el('name').value,content:el('content').value})}function inspectMacro(){call('/scripts/inspect?name='+encodeURIComponent(el('name').value))}function manifest(){call('/scripts/manifest')}function preview(){call('/scripts/preview?name='+encodeURIComponent(el('name').value))}async function exportFile(){const r=await fetch('/scripts/export?name='+encodeURIComponent(el('name').value),{headers:{'X-Cyberdeck-Token':el('token').value}});if(!r.ok){el('result').textContent='Export failed: '+r.status;return}const blob=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=el('name').value;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}function del(){if(confirm('Delete '+el('name').value+'?'))call('/scripts/delete',{name:el('name').value})}</script>)WEB");});
 }
 }
