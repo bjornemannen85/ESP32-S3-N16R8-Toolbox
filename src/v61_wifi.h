@@ -7,7 +7,7 @@
 #include <esp_system.h>
 #include <vector>
 // V61_NAT_STAGE3: NAT support is optional in the Arduino lwIP build.
-#if 0 // NAT disabled until compatible lwIP API is verified
+#if defined(V61_IDF_NAT_BUILD) && V61_IDF_NAT_BUILD
   #include <lwip/lwip_napt.h>
   #define V61_NAPT_AVAILABLE 1
 #else
