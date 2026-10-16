@@ -15,6 +15,18 @@ static bool running=false,receiving=false;
 static String sessionCode;
 static unsigned long lastPacket=0;
 static const unsigned long TRANSFER_TIMEOUT_MS=60000;
+static const unsigned long SESSION_LIFETIME_MS=300000;
+static const unsigned long LOCKOUT_MS=120000;
+static unsigned long sessionStarted=0, lockoutUntil=0;
+static uint8_t badAttempts=0;
+static bool lockedOut(){return lockoutUntil && (int32_t)(millis()-lockoutUntil)<0;}
+static void reset();
+static void tick(){
+ if(receiving && millis()-lastPacket>TRANSFER_TIMEOUT_MS){reset();lastResult="transfer timeout";}
+ if(running && sessionCode.length() && millis()-sessionStarted>SESSION_LIFETIME_MS){
+  sessionCode="";reset();lastResult="session expired: restart receiver";
+ }
+}
 static BLEServer *server=nullptr;
 static BLECharacteristic *dataChar=nullptr;
 static String name;
@@ -25,7 +37,7 @@ static String lastResult="idle";
 static uint32_t crc32(const String &s){uint32_t c=0xFFFFFFFF;for(size_t i=0;i<s.length();++i){c^=(uint8_t)s[i];for(int b=0;b<8;b++)c=(c>>1)^((c&1)?0xEDB88320UL:0);}return ~c;}
 static void reset(){receiving=false;name="";payload="";expectedSize=0;expectedCRC=0;}
 static void command(const std::string &value){
-  if(receiving && millis()-lastPacket>TRANSFER_TIMEOUT_MS){reset();lastResult="transfer timeout";}
+  tick();
   lastPacket=millis();
   if(value.size()>512){lastResult="chunk too large";reset();return;}
   String v;v.reserve(value.size());for(char c:value)v+=(char)c;
@@ -37,7 +49,12 @@ static void command(const std::string &value){
     int sep=tail.indexOf('|');
     if(sep<0){lastResult="session code required";return;}
     String crc=tail.substring(0,sep),provided=tail.substring(sep+1);
-    if(!running||sessionCode.length()!=6||provided!=sessionCode){lastResult="unauthorized transfer";return;}
+    if(lockedOut()){lastResult="receiver temporarily locked";return;}
+    if(!running||sessionCode.length()!=6||provided!=sessionCode){
+      if(++badAttempts>=5){lockoutUntil=millis()+LOCKOUT_MS;badAttempts=0;}
+      lastResult="unauthorized transfer";return;
+    }
+    badAttempts=0;
     for(char c:len)if(c<'0'||c>'9'){lastResult="bad length";return;}
     if(crc.length()!=8){lastResult="bad crc";return;}
     for(char c:crc)if(!isxdigit((unsigned char)c)){lastResult="bad crc";return;}
@@ -66,7 +83,7 @@ static Receiver receiver;
 static bool start(){
  if(running)return true;
  if(!V61Scripts::ready){lastResult="LittleFS unavailable";return false;}
- sessionCode=String(100000+(esp_random()%900000));
+ sessionCode=String(100000+(esp_random()%900000));sessionStarted=millis();badAttempts=0;lockoutUntil=0;
  BLEDevice::init("Cyberdeck-V61-Transfer");
  server=BLEDevice::createServer();
  BLEService *svc=server->createService("8efbf6f0-5a0b-4f44-83a8-85b615ad0100");
@@ -75,9 +92,9 @@ static bool start(){
  BLEAdvertising *adv=BLEDevice::getAdvertising();adv->addServiceUUID(svc->getUUID());adv->start();
  running=true;lastResult="advertising";return true;
 }
-static void stop(){if(!running)return;BLEDevice::getAdvertising()->stop();BLEDevice::deinit(true);server=nullptr;dataChar=nullptr;running=false;sessionCode="";reset();lastResult="stopped";}
+static void stop(){if(!running)return;BLEDevice::getAdvertising()->stop();BLEDevice::deinit(true);server=nullptr;dataChar=nullptr;running=false;sessionCode="";badAttempts=0;lockoutUntil=0;reset();lastResult="stopped";}
 static String status(){
- if(receiving && millis()-lastPacket>TRANSFER_TIMEOUT_MS){reset();lastResult="transfer timeout";}
+ tick();
  return String("{\"enabled\":")+(running?"true":"false")+",\"receiving\":"+(receiving?"true":"false")+",\"bytes\":"+String(payload.length())+",\"expected\":"+String(expectedSize)+",\"result\":\""+V61WiFi::escapeJson(lastResult)+"\",\"hardware_tested\":false}";}
 static void routes(WebServer &s){
  s.on("/api/v61/ble-transfer/status",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",status());});
