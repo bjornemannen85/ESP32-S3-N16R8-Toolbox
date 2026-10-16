@@ -247,10 +247,20 @@ void scanBle(){v6Log("BLE scan started");
  bleStored=0;bleOffset=0;
  if(!bleReady){BLEDevice::init("");bleReady=true;}
  BLEScan *scanner=BLEDevice::getScan();scanner->setActiveScan(false);
+ #if defined(V61_IDF_NAT_BUILD) && V61_IDF_NAT_BUILD
+ BLEScanResults *results=scanner->start(4,false);
+ bleCount=results ? results->getCount() : 0;
+#else
  BLEScanResults results=scanner->start(4,false);
- bleCount=results.getCount();bleStored=min(bleCount,40);
+ bleCount=results.getCount();
+#endif
+ bleStored=min(bleCount,40);
  for(int i=0;i<bleStored;i++){
+   #if defined(V61_IDF_NAT_BUILD) && V61_IDF_NAT_BUILD
+   BLEAdvertisedDevice d=results->getDevice(i);
+#else
    BLEAdvertisedDevice d=results.getDevice(i);
+#endif
    bleLines[i]=d.haveName()?String(d.getName().c_str()):String(d.getAddress().toString().c_str());
    bleRssi[i]=d.getRSSI();
  }
