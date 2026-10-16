@@ -6,6 +6,15 @@
 #include <HTTPClient.h>
 #include <esp_system.h>
 #include <vector>
+// V61_NAT_STAGE3: NAT support is optional in the Arduino lwIP build.
+#if __has_include(<lwip/lwip_napt.h>)
+  #include <lwip/lwip_napt.h>
+  #define V61_NAPT_AVAILABLE 1
+#else
+  #define V61_NAPT_AVAILABLE 0
+#endif
+#include <WiFiClient.h>
+
 
 // Wi-Fi manager. Credentials never leave NVS or appear in API responses.
 namespace V61WiFi {
@@ -17,6 +26,31 @@ static unsigned long lastConnect=0;
 static bool restartAP=false;
 static String lastError;
 static const int MAX_NETWORKS=8;
+static bool natRequested=false, natActive=false;
+static bool lastUplink=false;
+static unsigned long lastNatCheck=0;
+static String natMessage="NAT not checked";
+static bool enableNat(){
+#if V61_NAPT_AVAILABLE
+  if(WiFi.status()!=WL_CONNECTED){natActive=false;natMessage="STA not connected";return false;}
+  // ESP32 Arduino lwIP NAT: enable NAPT on AP interface address.
+  ip_napt_enable((u32_t)WiFi.softAPIP(), 1);
+  natActive=true;
+  natMessage="NAPT enabled (traffic not yet verified)";
+  return true;
+#else
+  natActive=false;
+  natMessage="NAT unavailable in this firmware's lwIP build";
+  return false;
+#endif
+}
+static void disableNat(){
+#if V61_NAPT_AVAILABLE
+  if(natActive)ip_napt_enable((u32_t)WiFi.softAPIP(), 0);
+#endif
+  natActive=false;
+}
+
 
 static String escapeJson(const String &s){String r; for(size_t i=0;i<s.length();++i){char c=s[i]; if(c=='"'||c=='\\')r+='\\'; if(c=='\n')r+="\\n"; else if(c=='\r')r+="\\r"; else if((uint8_t)c>=32)r+=c;}return r;}
 static String html(const String &s){String r=s;r.replace("&","&amp;");r.replace("<","&lt;");r.replace(">","&gt;");r.replace("\"","&quot;");r.replace("'","&#39;");return r;}
@@ -34,7 +68,7 @@ static void load(){
  for(int i=0;i<count;i++){String k="n"+String(i);Network n{prefs.getString((k+"s").c_str(),""),prefs.getString((k+"p").c_str(),""),prefs.getInt((k+"r").c_str(),0)};if(validSSID(n.ssid))known.push_back(n);}
 }
 static void save(){prefs.putInt("count",known.size());for(int i=0;i<MAX_NETWORKS;i++){String k="n"+String(i);if(i<(int)known.size()){prefs.putString((k+"s").c_str(),known[i].ssid);prefs.putString((k+"p").c_str(),known[i].password);prefs.putInt((k+"r").c_str(),known[i].priority);}else{prefs.remove((k+"s").c_str());prefs.remove((k+"p").c_str());prefs.remove((k+"r").c_str());}}}
-static void start(){load();WiFi.mode(WIFI_AP_STA);WiFi.setAutoReconnect(true);WiFi.softAP(apSSID.c_str(),apPassword.c_str());}
+static void start(){load();natRequested=prefs.getBool("nat",false);WiFi.mode(WIFI_AP_STA);WiFi.setAutoReconnect(true);WiFi.softAP(apSSID.c_str(),apPassword.c_str());}
 static int nextCandidate=0;
 static void connectBest(){
  if(WiFi.status()==WL_CONNECTED||known.empty())return;
@@ -59,15 +93,22 @@ static bool setAP(const String &ssid,const String &pass){
  restartAP=true;return true;
 }
 static void tick(){
- if(restartAP){restartAP=false;WiFi.softAPdisconnect(true);delay(80);WiFi.softAP(apSSID.c_str(),apPassword.c_str());}
+ if(restartAP){restartAP=false;disableNat();WiFi.softAPdisconnect(true);delay(80);WiFi.softAP(apSSID.c_str(),apPassword.c_str());lastNatCheck=0;}
+ bool uplink=WiFi.status()==WL_CONNECTED;
+ if(!uplink&&natActive)disableNat();
+ if(natRequested&&uplink&&(!natActive||!lastUplink)&&millis()-lastNatCheck>1500){lastNatCheck=millis();enableNat();}
+ if(!natRequested&&natActive)disableNat();
+ lastUplink=uplink;
  if(WiFi.status()!=WL_CONNECTED&&(lastConnect==0||millis()-lastConnect>30000))connectBest();
 }
 static bool authorized(WebServer &s){String t=s.header("X-Cyberdeck-Token");if(t.length()==0)t=s.arg("token");return t.length()>=16&&t==adminToken;}
 static void forbidden(WebServer &s){s.send(403,"application/json","{\"error\":\"admin token required\"}");}
-static String status(){String j="{\"ap_ssid\":\""+escapeJson(apSSID)+"\",\"ap_ip\":\""+WiFi.softAPIP().toString()+"\",\"clients\":"+String(WiFi.softAPgetStationNum())+",\"sta_connected\":"+String(WiFi.status()==WL_CONNECTED?"true":"false")+",\"sta_ssid\":\""+escapeJson(WiFi.status()==WL_CONNECTED?WiFi.SSID():"")+"\",\"sta_ip\":\""+(WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():String(""))+"\",\"nat_active\":false,\"networks\":[";
+static String status(){String j="{\"ap_ssid\":\""+escapeJson(apSSID)+"\",\"ap_ip\":\""+WiFi.softAPIP().toString()+"\",\"clients\":"+String(WiFi.softAPgetStationNum())+",\"sta_connected\":"+String(WiFi.status()==WL_CONNECTED?"true":"false")+",\"sta_ssid\":\""+escapeJson(WiFi.status()==WL_CONNECTED?WiFi.SSID():"")+"\",\"sta_ip\":\""+(WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():String(""))+"\",\"nat_active\":"+String(natActive?"true":"false")+",\"nat_supported\":"+String(V61_NAPT_AVAILABLE?"true":"false")+",\"nat_requested\":"+String(natRequested?"true":"false")+",\"nat_message\":\""+escapeJson(natMessage)+"\",\"networks\":[";
  for(int i=0;i<(int)known.size();i++){if(i)j+=",";j+="{\"ssid\":\""+escapeJson(known[i].ssid)+"\",\"priority\":"+String(known[i].priority)+"}";}return j+"]}";}
 static void routes(WebServer &s){
  const char *headers[]={"X-Cyberdeck-Token"};s.collectHeaders(headers,1);
+ s.on("/wifi/nat",HTTP_POST,[&s](){if(!authorized(s))return forbidden(s);String val=s.arg("enabled");if(val!="0"&&val!="1"){s.send(400,"text/plain","enabled must be 0 or 1");return;}natRequested=val=="1";prefs.putBool("nat",natRequested);if(!natRequested){disableNat();natMessage="NAT disabled";}else if(WiFi.status()==WL_CONNECTED){enableNat();}else natMessage="Waiting for STA connection";s.send(200,"application/json",status());});
+ s.on("/wifi/tcp",HTTP_GET,[&s](){if(!authorized(s))return forbidden(s);String host=s.arg("host");int port=s.arg("port").toInt();if(host.isEmpty()||host.length()>120||port<1||port>65535||host.indexOf('/')>=0){s.send(400,"text/plain","Invalid host or port");return;}if(WiFi.status()!=WL_CONNECTED){s.send(503,"text/plain","STA disconnected");return;}WiFiClient client;client.setTimeout(2000);unsigned long begin=millis();bool ok=client.connect(host.c_str(),(uint16_t)port,2000);unsigned long elapsed=millis()-begin;client.stop();s.send(ok?200:503,"application/json",String("{\"ok\":")+(ok?"true":"false")+",\"latency_ms\":"+String(elapsed)+"}");});
  s.on("/wifi/status",HTTP_GET,[&s](){if(!authorized(s))return forbidden(s);s.send(200,"application/json",status());});
  s.on("/wifi/networks",HTTP_POST,[&s](){if(!authorized(s))return forbidden(s);String ssid=s.arg("ssid"),pass=s.arg("password");int pr=constrain(s.arg("priority").toInt(),-100,100);if(!validSSID(ssid)||(!pass.isEmpty()&&pass.length()<8)){s.send(400,"text/plain","Invalid SSID/password");return;}int idx=-1;for(int i=0;i<(int)known.size();i++)if(known[i].ssid==ssid)idx=i;if(idx<0&&(int)known.size()>=MAX_NETWORKS){s.send(409,"text/plain","Network list full");return;}if(idx>=0){known[idx].priority=pr;if(pass.length())known[idx].password=pass;}else known.push_back({ssid,pass,pr});save();WiFi.disconnect(false,false);lastConnect=0;s.send(200,"application/json","{\"ok\":true}");});
  s.on("/wifi/delete",HTTP_POST,[&s](){if(!authorized(s))return forbidden(s);String ssid=s.arg("ssid");for(auto it=known.begin();it!=known.end();++it)if(it->ssid==ssid){known.erase(it);save();s.send(200,"application/json","{\"ok\":true}");return;}s.send(404,"text/plain","Not found");});
