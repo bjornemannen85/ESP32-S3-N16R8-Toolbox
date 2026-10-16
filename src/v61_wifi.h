@@ -35,10 +35,28 @@ static void load(){
 }
 static void save(){prefs.putInt("count",known.size());for(int i=0;i<MAX_NETWORKS;i++){String k="n"+String(i);if(i<(int)known.size()){prefs.putString((k+"s").c_str(),known[i].ssid);prefs.putString((k+"p").c_str(),known[i].password);prefs.putInt((k+"r").c_str(),known[i].priority);}else{prefs.remove((k+"s").c_str());prefs.remove((k+"p").c_str());prefs.remove((k+"r").c_str());}}}
 static void start(){load();WiFi.mode(WIFI_AP_STA);WiFi.setAutoReconnect(true);WiFi.softAP(apSSID.c_str(),apPassword.c_str());}
+static int nextCandidate=0;
 static void connectBest(){
  if(WiFi.status()==WL_CONNECTED||known.empty())return;
- int best=-1;for(int i=0;i<(int)known.size();i++)if(best<0||known[i].priority>known[best].priority)best=i;
- if(best>=0){WiFi.begin(known[best].ssid.c_str(),known[best].password.c_str());lastConnect=millis();}
+ // Rotate through saved profiles; priority wins on each complete cycle.
+ std::vector<int> order;for(int i=0;i<(int)known.size();i++)order.push_back(i);
+ for(size_t i=0;i<order.size();i++)for(size_t j=i+1;j<order.size();j++)
+   if(known[order[j]].priority>known[order[i]].priority){int tmp=order[i];order[i]=order[j];order[j]=tmp;}
+ int index=order[nextCandidate%order.size()];nextCandidate=(nextCandidate+1)%order.size();
+ WiFi.begin(known[index].ssid.c_str(),known[index].password.c_str());lastConnect=millis();
+}
+static bool upsert(const String &ssid,const String &pass,int priority){
+ if(!validSSID(ssid)||(!pass.isEmpty()&&!validPass(pass)))return false;
+ int idx=-1;for(int i=0;i<(int)known.size();i++)if(known[i].ssid==ssid)idx=i;
+ if(idx<0&&(int)known.size()>=MAX_NETWORKS)return false;
+ if(idx>=0){known[idx].priority=priority;if(pass.length())known[idx].password=pass;}
+ else known.push_back({ssid,pass,priority});
+ save();nextCandidate=0;lastConnect=0;return true;
+}
+static bool setAP(const String &ssid,const String &pass){
+ if(!validSSID(ssid)||!validPass(pass))return false;
+ apSSID=ssid;apPassword=pass;prefs.putString("ap_ssid",ssid);prefs.putString("ap_pass",pass);
+ restartAP=true;return true;
 }
 static void tick(){
  if(restartAP){restartAP=false;WiFi.softAPdisconnect(true);delay(80);WiFi.softAP(apSSID.c_str(),apPassword.c_str());}
