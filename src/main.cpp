@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <SD_MMC.h>
 #include "v6_web.h"
 #include <BLEDevice.h>
 #include <BLEScan.h>
@@ -22,6 +23,7 @@ void draw();
 Page history[12]; int historyDepth=0;
 void goBack(){page=historyDepth>0?history[--historyDepth]:HOME;draw();}
 bool lastPressed=false,touchOK=false,bleReady=false;
+bool sdMounted=false; String sdState="NOT TESTED";
 uint32_t lastTouch=0,lastSystemDraw=0;
 String wifiLines[40],bleLines[40]; int wifiCount=-1,bleCount=-1;
 int wifiStored=0,bleStored=0,wifiOffset=0,bleOffset=0;
@@ -72,8 +74,15 @@ void menu(const Page *items,int count){
  for(int i=0;i<count;i++){int col=i%2,row=i/2;tile(8+col*156,42+row*49,148,43,names[items[i]],items[i]);}
  backButton();
 }
+void initStorage(){
+  // ES3C28P candidate SDMMC pin mapping; verify against board revision.
+  SD_MMC.setPins(38,40,39,41,48,47);
+  sdMounted=SD_MMC.begin("/sdcard",false);
+  sdState=sdMounted?String("READY ")+String((uint32_t)(SD_MMC.cardSize()/1048576ULL))+" MB":"NOT MOUNTED";
+  v6Log(String("SD: ")+sdState);
+}
 void draw(){
- header(page==HOME?"CYBERDECK V6.0 NEON":names[page]);
+ header(page==HOME?"CYBERDECK V6.1 PRO":names[page]);
  switch(page){
  case HOME:{
   const Page homeItems[]={WIFI,BLE,NFC,SUBGHZ,IR,PAGE_GPIO,UART,I2C,STORAGE,SYSTEM,SETTINGS,TOOLS};
@@ -82,7 +91,7 @@ void draw(){
    int col=i%4,row=i/4;
    tile(5+col*79,39+row*59,73,54,homeNames[i],homeItems[i]);
   }
-  label("ES3C28P  V6.0  SAFE MODE",6,223,1,MUTED);break;
+  label("ES3C28P V6.1 SAFE MODE",6,223,1,MUTED);break;
  }
  case RADIO: menu(radioItems,5);break;
  case HARDWARE: menu(hwItems,6);break;
@@ -134,9 +143,17 @@ void draw(){
   label("PN532: NOT CONFIGURED",8,52,1,ORANGE);
   label("CC1101: NOT CONFIGURED",8,76,1,ORANGE);
   label("IR: NOT CONFIGURED",8,100,1,ORANGE);
-  label("SD: NOT MOUNTED",8,124,1,ORANGE);
+  label("SD: "+sdState,8,124,1,sdMounted?GREEN:ORANGE);
   label("GPIO: NOT CONFIGURED",8,155,1,MUTED);backButton();break;
- case NFC:case SUBGHZ:case IR:case PAGE_GPIO:case UART:case I2C:case SPI_DIAG:case STORAGE:
+ case STORAGE:
+  label("INTEGRATED MICROSD",12,48,1,ACCENT);
+  label("STATUS: "+sdState,12,74,1,sdMounted?GREEN:ORANGE);
+  if(sdMounted){
+    label("TOTAL: "+String((uint32_t)(SD_MMC.totalBytes()/1048576ULL))+" MB",12,101,1);
+    label("USED: "+String((uint32_t)(SD_MMC.usedBytes()/1048576ULL))+" MB",12,123,1);
+  }
+  backButton();break;
+ case NFC:case SUBGHZ:case IR:case PAGE_GPIO:case UART:case I2C:case SPI_DIAG:
   label("NOT CONFIGURED",12,65,2,ORANGE);
   label("Hardware / pins pending",12,103,1,MUTED);
   label("No GPIO activity",12,122,1,MUTED);backButton();break;
@@ -184,7 +201,7 @@ void scanBle(){v6Log("BLE scan started");
  scanner->clearResults();draw();
 }
 void enter(Page p,Page from){if(historyDepth<12)history[historyDepth++]=page;parent=from;page=p;draw();}
-void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
+void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();initStorage();Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
  v6Server.handleClient();
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);

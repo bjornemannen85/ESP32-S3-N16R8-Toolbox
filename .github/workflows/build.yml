@@ -1,7 +1,7 @@
-name: Build ES3C28P V4.9.1
+name: Build ES3C28P V6.1 Ultimate Pro
 on:
   push:
-    branches: [v5.1-neon]
+    branches: [v6.1-ultimate-pro]
   workflow_dispatch:
 jobs:
   build:
@@ -19,8 +19,8 @@ jobs:
           cp .pio/build/es3c28p/firmware.bin dist/
           cp .pio/build/es3c28p/bootloader.bin dist/
           cp .pio/build/es3c28p/partitions.bin dist/
-          python -m esptool --chip esp32s3 merge_bin -o dist/es3c28p-v4.8-pro-merged.bin --flash_mode dio --flash_freq 40m --flash_size 16MB 0x0 dist/bootloader.bin 0x8000 dist/partitions.bin 0x10000 dist/firmware.bin
+          python -m esptool --chip esp32s3 merge_bin -o dist/es3c28p-v6.1-ultimate-pro-merged.bin --flash_mode dio --flash_freq 40m --flash_size 16MB 0x0 dist/bootloader.bin 0x8000 dist/partitions.bin 0x10000 dist/firmware.bin
       - uses: actions/upload-artifact@v4
         with:
-          name: es3c28p-v5.1-neon
+          name: es3c28p-v6.1-ultimate-pro
           path: dist/*.bin
