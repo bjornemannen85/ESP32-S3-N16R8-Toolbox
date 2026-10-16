@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include "v6_web.h"
 #include <BLEDevice.h>
 #include <BLEScan.h>
 #include <Adafruit_GFX.h>
@@ -72,7 +73,7 @@ void menu(const Page *items,int count){
  backButton();
 }
 void draw(){
- header(page==HOME?"CYBERDECK V5.1 NEON":names[page]);
+ header(page==HOME?"CYBERDECK V6.0 NEON":names[page]);
  switch(page){
  case HOME:{
   const Page homeItems[]={WIFI,BLE,NFC,SUBGHZ,IR,PAGE_GPIO,UART,I2C,STORAGE,SYSTEM,SETTINGS,TOOLS};
@@ -81,7 +82,7 @@ void draw(){
    int col=i%4,row=i/4;
    tile(5+col*79,39+row*59,73,54,homeNames[i],homeItems[i]);
   }
-  label("ES3C28P  V5.1  SAFE MODE",6,223,1,MUTED);break;
+  label("ES3C28P  V6.0  SAFE MODE",6,223,1,MUTED);break;
  }
  case RADIO: menu(radioItems,5);break;
  case HARDWARE: menu(hwItems,6);break;
@@ -140,6 +141,10 @@ void draw(){
   label("Hardware / pins pending",12,103,1,MUTED);
   label("No GPIO activity",12,122,1,MUTED);backButton();break;
  case SETTINGS:
+  label("WEB DASHBOARD ACTIVE",12,126,1,GREEN);
+  label("SSID: "+v6SSID,12,144,1,WHITE);
+  label("PASS: "+v6Password,12,158,1,WHITE);
+  label("OPEN: 192.168.4.1",12,173,1,ACCENT);
   label("Pin mapping: pending",12,57,1,ORANGE);
   label("WiFi setup: pending",12,79,1,ORANGE);
   label("Saved configs: pending",12,101,1,ORANGE);backButton();break;
@@ -149,11 +154,11 @@ void draw(){
   label(touchOK?"Touch OK":"Touch unavailable",12,102,1,MUTED);backButton();break;
  }
 }
-void scanWifi(){
+void scanWifi(){v6Log("WiFi scan started");
  header("WIFI SCANNING...");
  for(auto &line:wifiLines)line="";
  wifiStored=0;wifiOffset=0;
- WiFi.mode(WIFI_STA);WiFi.disconnect(false,false);delay(100);
+ WiFi.mode(WIFI_AP_STA);WiFi.disconnect(false,false);delay(100);
  int n=WiFi.scanNetworks(false,true);wifiCount=n<0?0:n;
  wifiStored=min(wifiCount,40);
  for(int i=0;i<wifiStored;i++){
@@ -163,7 +168,7 @@ void scanWifi(){
  }
  WiFi.scanDelete();draw();
 }
-void scanBle(){
+void scanBle(){v6Log("BLE scan started");
  header("BLE SCANNING...");
  for(auto &line:bleLines)line="";
  bleStored=0;bleOffset=0;
@@ -179,8 +184,9 @@ void scanBle(){
  scanner->clearResults();draw();
 }
 void enter(Page p,Page from){if(historyDepth<12)history[historyDepth++]=page;parent=from;page=p;draw();}
-void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
+void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
+ v6Server.handleClient();
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
  if(pressed&&page==TOUCH&&y<185)lcd.fillCircle(x,y,3,BLUE);
  if(pressed&&!lastPressed&&millis()-lastTouch>220){
