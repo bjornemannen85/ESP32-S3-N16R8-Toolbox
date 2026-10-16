@@ -1,0 +1,20 @@
+name: V6.1 Arduino ESP-IDF NAT compatibility probe
+on:
+  push:
+    branches: [v6.1-ultimate-pro]
+    paths:
+      - 'idf_arduino_nat_probe/**'
+      - '.github/workflows/arduino-idf-nat-probe.yml'
+  workflow_dispatch:
+jobs:
+  compatibility:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Compile Arduino as ESP-IDF component with NAT
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.3.2
+          target: esp32s3
+          path: idf_arduino_nat_probe
+          command: idf.py build
