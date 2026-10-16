@@ -15,3 +15,11 @@
 - Authenticated `GET /wifi/tcp?host=example.com&port=80` TCP connection latency probe (not ICMP ping).
 - `/wifi/status` reports NAT support/requested/attempted activation; real forwarding must be physically tested.
 - Router DNS/DHCP advertisement, upstream reachability and actual client forwarding are not yet verified.
+
+## Stage 4 (source only; CI/hardware unverified)
+- Added authenticated Wi-Fi overview (RSSI, gateway, DNS, channel, uptime).
+- Added authenticated CSV Wi-Fi scan endpoint (max 40 networks).
+- Added authenticated read-only system and I2C discovery endpoints.
+- No GPIO writes, RF transmission, or unverified SDMMC pin activity.
+- NAT remains unavailable; no claim of internet sharing.
+- Wi-Fi web dashboard uses plaintext HTTP; restrict to trusted clients.
