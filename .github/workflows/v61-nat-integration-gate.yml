@@ -1,0 +1,40 @@
+name: V6.1 NAT integration gate
+on:
+  push:
+    branches: [v6.1-ultimate-pro]
+    paths:
+      - 'src/**'
+      - 'nat_router_idf/**'
+      - 'platformio.ini'
+      - '.github/workflows/v61-nat-integration-gate.yml'
+  workflow_dispatch:
+jobs:
+  cyberdeck:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - run: python -m pip install platformio
+      - name: Verify NAT remains disabled in Arduino firmware
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('src/v61_wifi.h').read_text()
+          assert '#define V61_NAPT_AVAILABLE 0' in s, 'Arduino NAT guard changed: audit before flashing'
+          print('Arduino NAT still unavailable; no false router-ready claim')
+          PY
+      - name: Build complete Cyberdeck firmware
+        run: pio run -e es3c28p
+  nat-idf:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Build isolated NAT stack
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.3.2
+          target: esp32s3
+          path: nat_router_idf
+          command: idf.py build
