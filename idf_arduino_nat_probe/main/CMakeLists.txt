@@ -8,6 +8,7 @@ idf_component_register(
     REQUIRES
         arduino-esp32
         esp_wifi
+        bt
         esp_netif
         lwip
         adafruit_gfx
