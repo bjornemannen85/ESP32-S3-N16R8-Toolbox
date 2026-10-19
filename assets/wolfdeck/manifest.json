@@ -3,13 +3,29 @@
     "width": 320,
     "height": 240,
     "flash_bytes": 77312,
-    "source_sha256": "a4eb3259858fcc741f005d6afb0536c5ff2b6fe2ac9f92d89aa34a22190763bc"
+    "source_sha256": "a4eb3259858fcc741f005d6afb0536c5ff2b6fe2ac9f92d89aa34a22190763bc",
+    "render_source": "wolfdeck_web_background.jpg",
+    "fit": "contain",
+    "image_rect": [
+      0,
+      20,
+      320,
+      200
+    ]
   },
   "boot": {
     "width": 320,
     "height": 240,
     "flash_bytes": 77312,
-    "source_sha256": "1ad900dc463a08f04a19590285706eb583d3d3acfe6322053aa996d150a59ea8"
+    "source_sha256": "1ad900dc463a08f04a19590285706eb583d3d3acfe6322053aa996d150a59ea8",
+    "render_source": "wolfdeck_web_background.jpg",
+    "fit": "contain",
+    "image_rect": [
+      0,
+      20,
+      320,
+      200
+    ]
   },
   "web": {
     "width": 1280,

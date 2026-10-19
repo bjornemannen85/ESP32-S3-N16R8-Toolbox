@@ -1,6 +1,6 @@
 from pathlib import Path
 import hashlib,json,re,unittest
-from PIL import Image
+from PIL import Image,ImageOps
 ROOT=Path(__file__).resolve().parents[1]
 A=ROOT/'assets/wolfdeck'
 class WolfDeckArtwork(unittest.TestCase):
@@ -17,6 +17,14 @@ class WolfDeckArtwork(unittest.TestCase):
    with Image.open(path) as image:self.assertEqual(image.size,(320,240))
    self.assertEqual(len(self.values(role+'Pixels')),76800)
    self.assertEqual(len(self.values(role+'Palette')),256)
+ def test_complete_composition_fits_without_crop_or_stretch(self):
+  for role in ['display','boot']:
+   self.assertEqual(self.manifest[role]['fit'],'contain')
+   self.assertEqual(self.manifest[role]['image_rect'],[0,20,320,200])
+   palette=self.values(role+'Palette');pixels=self.values(role+'Pixels')
+   # All four picture edges remain inside the screen; the bars stay dark.
+   for y in list(range(20))+list(range(220,240)):
+    self.assertTrue(all(palette[pixels[y*320+x]]<=2 for x in range(320)))
  def test_web_image_compression_and_flash_payload(self):
   path=A/'web/wolfdeck_web_background.jpg';data=path.read_bytes()
   with Image.open(path) as im:
@@ -32,8 +40,10 @@ class WolfDeckArtwork(unittest.TestCase):
   for role in ['display','boot']:
    palette=self.values(role+'Palette');pixels=self.values(role+'Pixels')
    decoded=[((palette[p]>>11)*255//31,((palette[p]>>5)&63)*255//63,(palette[p]&31)*255//31) for p in pixels]
-   with Image.open(A/'source'/f'wolfdeck_{role}_320x240.jpg') as im:
-    original=list(im.get_flattened_data())
+   with Image.open(A/'source/wolfdeck_web_background.jpg') as source:
+    fitted=ImageOps.contain(source.convert('RGB'),(320,240),Image.Resampling.LANCZOS)
+   im=Image.new('RGB',(320,240),(0,0,8));im.paste(fitted,(0,20))
+   original=list(im.get_flattened_data())
    error=sum(abs(a-b) for rgb,out in zip(original,decoded) for a,b in zip(rgb,out))/(76800*3)
    self.assertLess(error,5,role)
 if __name__=='__main__':unittest.main()

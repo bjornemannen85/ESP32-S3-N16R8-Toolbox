@@ -16,7 +16,12 @@ SD card or extra upload is required.
   into HTML responses, so existing manager pages receive the same theme.
   Dark overlays, opaque input/output surfaces, contrast, visible focus rings
   and mobile spacing preserve readability.
-- Touch: both 320 × 240 originals converted to 256-color indexed RGB565.
+- Touch fit correction: the supplied 320 × 240 JPEGs were already close-up
+  crops. Display and boot now use the complete composition from the supplied
+  larger web image, scaled proportionally to 320 × 200 and centered at y=20
+  on the 320 × 240 canvas, with 20-pixel dark bars above/below. No source edge
+  is cropped and no stretching/zoom is used. The original files are retained.
+  Runtime images are converted to 256-color indexed RGB565.
   Each image occupies 77,312 flash bytes including its palette. Only one
   640-byte scanline is used for drawing; there is no full-screen framebuffer,
   JPEG decoder or startup heap allocation for the pictures.
@@ -24,7 +29,7 @@ SD card or extra upload is required.
   show the same artwork at quarter brightness under their icons and labels.
   Existing coordinates, LCD initialization, orientation and touch conversion
   are unchanged.
-- Boot: full-brightness boot artwork, six-frame WOLF DECK wordmark fade,
+- Boot: full-brightness fitted composition, six-frame WOLF DECK wordmark fade,
   monotonic progress at actual display/touch/web/WiFi/storage/route milestones,
   then green READY. Missing touch/storage is reported in its stage text.
   READY means the UI has finished initialization, not that STA internet or
