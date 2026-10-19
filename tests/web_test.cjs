@@ -19,6 +19,11 @@ function search(q){el('search').value=q;el('search').dispatchEvent(new w.Event('
 function field(name,value){w.document.querySelector(`[name="${name}"]`).value=value;}
 (async()=>{
  await tick();assert(el('program').options.length>70);
+ const theme=fs.readFileSync(path.join(root,'src/v62_wolfdeck_theme.h'),'utf8').match(/R"CSS\(([\s\S]*?)\)CSS"/)[1];
+ const style=w.document.createElement('style');style.textContent=theme;w.document.head.append(style);
+ assert(w.getComputedStyle(w.document.body).backgroundImage.includes('wolfdeck_web_background.jpg'));
+ assert.equal(w.getComputedStyle(w.document.body).color,'rgb(237, 248, 255)');
+ assert.equal(w.document.querySelector('h1').textContent,'WOLF DECK');
  el('token').value='private-test-token';search('/api/v61/uart/start');
  field('rx','4');field('tx','5');field('baud','4800');el('run').click();await tick();
  let r=requests.at(-1);assert.equal(r.url,'/api/v61/uart/start');assert.equal(r.method,'POST');
