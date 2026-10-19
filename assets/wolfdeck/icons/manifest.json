@@ -1,0 +1,437 @@
+{
+  "version": 1,
+  "style": "WOLF DECK vector marks, 64-unit grid, 3-unit strokes",
+  "icons": [
+    {
+      "id": "network",
+      "label": "Network",
+      "category": "network",
+      "color": "#26DDF2",
+      "svg": "svg/network.svg"
+    },
+    {
+      "id": "wifi",
+      "label": "WiFi scanner",
+      "category": "network",
+      "color": "#26DDF2",
+      "svg": "svg/wifi.svg"
+    },
+    {
+      "id": "nat",
+      "label": "NAT router",
+      "category": "network",
+      "color": "#26DDF2",
+      "svg": "svg/nat.svg"
+    },
+    {
+      "id": "dns",
+      "label": "DNS lookup",
+      "category": "network",
+      "color": "#26DDF2",
+      "svg": "svg/dns.svg"
+    },
+    {
+      "id": "http",
+      "label": "HTTP client",
+      "category": "network",
+      "color": "#26DDF2",
+      "svg": "svg/http.svg"
+    },
+    {
+      "id": "tcp",
+      "label": "TCP port test",
+      "category": "network",
+      "color": "#26DDF2",
+      "svg": "svg/tcp.svg"
+    },
+    {
+      "id": "history",
+      "label": "Scan history",
+      "category": "network",
+      "color": "#26DDF2",
+      "svg": "svg/history.svg"
+    },
+    {
+      "id": "bluetooth",
+      "label": "BLE scanner",
+      "category": "bluetooth",
+      "color": "#718AFF",
+      "svg": "svg/bluetooth.svg"
+    },
+    {
+      "id": "ble-transfer",
+      "label": "BLE file receiver",
+      "category": "bluetooth",
+      "color": "#718AFF",
+      "svg": "svg/ble-transfer.svg"
+    },
+    {
+      "id": "hardware",
+      "label": "Hardware tools",
+      "category": "hardware",
+      "color": "#FFC457",
+      "svg": "svg/hardware.svg"
+    },
+    {
+      "id": "uart",
+      "label": "UART terminal",
+      "category": "hardware",
+      "color": "#FFC457",
+      "svg": "svg/uart.svg"
+    },
+    {
+      "id": "adc",
+      "label": "ADC meter",
+      "category": "hardware",
+      "color": "#FFC457",
+      "svg": "svg/adc.svg"
+    },
+    {
+      "id": "gpio",
+      "label": "GPIO lab",
+      "category": "hardware",
+      "color": "#FFC457",
+      "svg": "svg/gpio.svg"
+    },
+    {
+      "id": "i2c",
+      "label": "I2C explorer",
+      "category": "hardware",
+      "color": "#FFC457",
+      "svg": "svg/i2c.svg"
+    },
+    {
+      "id": "spi",
+      "label": "SPI diagnostics",
+      "category": "hardware",
+      "color": "#FFC457",
+      "svg": "svg/spi.svg"
+    },
+    {
+      "id": "usb",
+      "label": "USB HID",
+      "category": "hardware",
+      "color": "#FFC457",
+      "svg": "svg/usb.svg"
+    },
+    {
+      "id": "files",
+      "label": "Files / storage",
+      "category": "files",
+      "color": "#57E4AD",
+      "svg": "svg/files.svg"
+    },
+    {
+      "id": "scripts",
+      "label": "Script manager",
+      "category": "files",
+      "color": "#57E4AD",
+      "svg": "svg/scripts.svg"
+    },
+    {
+      "id": "backup",
+      "label": "Backup / export",
+      "category": "files",
+      "color": "#57E4AD",
+      "svg": "svg/backup.svg"
+    },
+    {
+      "id": "sd",
+      "label": "microSD",
+      "category": "files",
+      "color": "#57E4AD",
+      "svg": "svg/sd.svg"
+    },
+    {
+      "id": "system",
+      "label": "System monitor",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/system.svg"
+    },
+    {
+      "id": "health",
+      "label": "Device health",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/health.svg"
+    },
+    {
+      "id": "memory",
+      "label": "Heap / PSRAM",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/memory.svg"
+    },
+    {
+      "id": "flash",
+      "label": "Flash information",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/flash.svg"
+    },
+    {
+      "id": "clock",
+      "label": "Clock / uptime",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/clock.svg"
+    },
+    {
+      "id": "logs",
+      "label": "Event log",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/logs.svg"
+    },
+    {
+      "id": "touch",
+      "label": "Touch test",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/touch.svg"
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "category": "settings",
+      "color": "#C390FF",
+      "svg": "svg/settings.svg"
+    },
+    {
+      "id": "wifi-setup",
+      "label": "WiFi setup",
+      "category": "settings",
+      "color": "#C390FF",
+      "svg": "svg/wifi-setup.svg"
+    },
+    {
+      "id": "profiles",
+      "label": "WiFi profiles",
+      "category": "settings",
+      "color": "#C390FF",
+      "svg": "svg/profiles.svg"
+    },
+    {
+      "id": "radio",
+      "label": "Radio tools",
+      "category": "modules",
+      "color": "#FF875B",
+      "svg": "svg/radio.svg"
+    },
+    {
+      "id": "nfc",
+      "label": "NFC / PN532",
+      "category": "modules",
+      "color": "#FF875B",
+      "svg": "svg/nfc.svg"
+    },
+    {
+      "id": "subghz",
+      "label": "CC1101 / Sub-GHz",
+      "category": "modules",
+      "color": "#FF875B",
+      "svg": "svg/subghz.svg"
+    },
+    {
+      "id": "ir",
+      "label": "IR analyzer",
+      "category": "modules",
+      "color": "#FF875B",
+      "svg": "svg/ir.svg"
+    },
+    {
+      "id": "modules",
+      "label": "Module manager",
+      "category": "modules",
+      "color": "#FF875B",
+      "svg": "svg/modules.svg"
+    },
+    {
+      "id": "all-tools",
+      "label": "All tools",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/all-tools.svg"
+    },
+    {
+      "id": "features",
+      "label": "Capabilities / roadmap",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/features.svg"
+    },
+    {
+      "id": "safety",
+      "label": "Safety / stop",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/safety.svg"
+    },
+    {
+      "id": "help",
+      "label": "Help / guide",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/help.svg"
+    },
+    {
+      "id": "release",
+      "label": "Release information",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/release.svg"
+    },
+    {
+      "id": "operations",
+      "label": "Operations",
+      "category": "system",
+      "color": "#62B7FF",
+      "svg": "svg/operations.svg"
+    }
+  ],
+  "routes": {
+    "/api/v61/adc/capabilities": "adc",
+    "/api/v61/adc/read": "adc",
+    "/api/v61/ble-transfer/code": "ble-transfer",
+    "/api/v61/ble-transfer/start": "ble-transfer",
+    "/api/v61/ble-transfer/status": "ble-transfer",
+    "/api/v61/ble-transfer/stop": "ble-transfer",
+    "/api/v61/features": "features",
+    "/api/v61/health": "health",
+    "/api/v61/network": "network",
+    "/api/v61/release/status": "release",
+    "/api/v61/release/stop": "safety",
+    "/api/v61/roadmap": "features",
+    "/api/v61/safety/stop": "safety",
+    "/api/v61/scan/clear": "history",
+    "/api/v61/scan/history": "history",
+    "/api/v61/scan/history.csv": "history",
+    "/api/v61/scan/live": "history",
+    "/api/v61/scripts/catalog": "scripts",
+    "/api/v61/scripts/import": "scripts",
+    "/api/v61/scripts/summary": "scripts",
+    "/api/v61/sd/list": "sd",
+    "/api/v61/sd/mount": "sd",
+    "/api/v61/sd/status": "sd",
+    "/api/v61/sd/unmount": "sd",
+    "/api/v61/uart/capabilities": "uart",
+    "/api/v61/uart/clear": "uart",
+    "/api/v61/uart/safety": "uart",
+    "/api/v61/uart/send": "uart",
+    "/api/v61/uart/start": "uart",
+    "/api/v61/uart/status": "uart",
+    "/api/v61/uart/stop": "uart",
+    "/api/v61/usb-hid/start": "usb",
+    "/api/v61/usb-hid/status": "usb",
+    "/api/v61/usb-hid/stop": "usb",
+    "/api/v61/v2/features": "features",
+    "/api/v61/v2/hardware/plan": "hardware",
+    "/api/v61/v2/runtime": "clock",
+    "/api/v61/v2/scripts/search": "scripts",
+    "/api/v61/v2/scripts/usage": "scripts",
+    "/api/v61/v2/wifi/history": "history",
+    "/api/v61/v2/wifi/history/clear": "history",
+    "/api/v61/v2/wifi/snapshot": "history",
+    "/hardware/i2c": "i2c",
+    "/hardware/system": "system",
+    "/scripts": "scripts",
+    "/scripts/backup": "backup",
+    "/scripts/copy": "scripts",
+    "/scripts/delete": "scripts",
+    "/scripts/export": "backup",
+    "/scripts/inspect": "scripts",
+    "/scripts/list": "scripts",
+    "/scripts/manifest": "scripts",
+    "/scripts/preview": "scripts",
+    "/scripts/read": "scripts",
+    "/scripts/rename": "scripts",
+    "/scripts/save": "scripts",
+    "/scripts/status": "scripts",
+    "/scripts/storage": "scripts",
+    "/toolbox": "system",
+    "/toolbox/advanced": "system",
+    "/toolbox/ble-transfer": "ble-transfer",
+    "/toolbox/clock": "clock",
+    "/toolbox/features": "features",
+    "/toolbox/flash": "flash",
+    "/toolbox/health": "health",
+    "/toolbox/help": "help",
+    "/toolbox/i2c": "i2c",
+    "/toolbox/io": "gpio",
+    "/toolbox/memory": "memory",
+    "/toolbox/operations": "operations",
+    "/toolbox/pins": "gpio",
+    "/toolbox/pro": "system",
+    "/toolbox/release-safety": "safety",
+    "/toolbox/sd": "sd",
+    "/toolbox/storage": "files",
+    "/toolbox/uart": "uart",
+    "/toolbox/usb-hid": "usb",
+    "/toolbox/wifi": "wifi",
+    "/tools/health": "health",
+    "/tools/safety": "safety",
+    "/wifi": "wifi",
+    "/wifi/ap": "wifi-setup",
+    "/wifi/delete": "profiles",
+    "/wifi/dns": "dns",
+    "/wifi/http": "http",
+    "/wifi/nat": "nat",
+    "/wifi/networks": "profiles",
+    "/wifi/overview": "wifi",
+    "/wifi/scan": "wifi",
+    "/wifi/scan.csv": "wifi",
+    "/wifi/status": "wifi",
+    "/wifi/tcp": "tcp"
+  },
+  "category_icons": [
+    "network",
+    "bluetooth",
+    "hardware",
+    "files",
+    "system",
+    "settings",
+    "radio"
+  ],
+  "home_icons": [
+    "network",
+    "bluetooth",
+    "hardware",
+    "files",
+    "system",
+    "settings",
+    "radio",
+    "all-tools"
+  ],
+  "native_pages": {
+    "HOME": "all-tools",
+    "RADIO": "radio",
+    "HARDWARE": "hardware",
+    "TOOLS": "all-tools",
+    "WIFI": "wifi",
+    "BLE": "bluetooth",
+    "SYSTEM": "system",
+    "TOUCH": "touch",
+    "NFC": "nfc",
+    "SUBGHZ": "subghz",
+    "IR": "ir",
+    "PAGE_GPIO": "gpio",
+    "UART": "uart",
+    "I2C": "i2c",
+    "SPI_DIAG": "spi",
+    "STORAGE": "sd",
+    "SETTINGS": "settings",
+    "LOGS": "logs",
+    "MODULES": "modules",
+    "WIFI_SETUP": "wifi-setup",
+    "WIFI_KEYBOARD": "wifi-setup",
+    "PROGRAMS": "all-tools",
+    "PROGRAM_ACTION": "all-tools",
+    "PROGRAM_RESULT": "all-tools",
+    "NETWORK_TOOLS": "network",
+    "BLUETOOTH_TOOLS": "bluetooth",
+    "FILE_TOOLS": "files",
+    "SYSTEM_TOOLS": "system",
+    "SETTINGS_TOOLS": "settings"
+  }
+}
