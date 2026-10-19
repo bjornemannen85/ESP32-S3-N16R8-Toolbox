@@ -24,6 +24,7 @@
 #include "v62_wolfdeck.h"
 #include "v62_categories.h"
 #include "v62_keyboard.h"
+#include "v62_icons.h"
 
 // ES3C28P: known-good V4.7 display/touch wiring.
 constexpr int LCD_CS=10,LCD_DC=46,LCD_SCK=12,LCD_MOSI=11,LCD_MISO=13,LCD_BL=45;
@@ -117,27 +118,14 @@ uint16_t tileColor(Page p){switch(p){case WIFI:case RADIO:return ACCENT;case BLE
 void tile(int x,int y,int w,int h,const String &title,Page target){
  uint16_t c=tileColor(target);
  WolfDeck::panel(lcd,x,y,w,h);lcd.drawRoundRect(x,y,w,h,6,c);
- int cx=x+w/2,cy=y+17;
- if(target==WIFI || target==RADIO){
-   lcd.drawCircle(cx,cy,10,c);lcd.drawCircle(cx,cy,6,c);lcd.fillCircle(cx,cy,2,c);
- }else if(target==BLE){
-   lcd.drawLine(cx,cy-10,cx,cy+10,c);lcd.drawLine(cx,cy-10,cx+7,cy-3,c);
-   lcd.drawLine(cx+7,cy-3,cx-7,cy+6,c);lcd.drawLine(cx-7,cy-6,cx+7,cy+4,c);
-   lcd.drawLine(cx+7,cy+4,cx,cy+10,c);
- }else if(target==SUBGHZ || target==NFC){
-   lcd.drawCircle(cx,cy,4,c);lcd.drawCircle(cx,cy,9,c);lcd.fillCircle(cx,cy,2,c);
- }else if(target==SYSTEM || target==TOOLS || target==SETTINGS){
-   lcd.drawRoundRect(cx-10,cy-10,20,20,4,c);lcd.drawCircle(cx,cy,5,c);
- }else{
-   lcd.drawRoundRect(cx-9,cy-9,18,18,3,c);lcd.fillRect(cx-3,cy-3,6,6,c);
- }
+ V62Icons::draw(lcd,V62Icons::pagesIcon(target),x+5,y+8);
  lcd.setTextSize(1);lcd.setTextColor(WHITE);
- String t=title; if(t.length()>12)t=t.substring(0,12);
- lcd.setCursor(x+(w-(int)t.length()*6)/2,y+h-14);lcd.print(t);
+ String t=title;if(t.length()>17)t=t.substring(0,15)+"..";
+ lcd.setCursor(x+34,y+(h-8)/2);lcd.print(t);
 }
 void button(int x,int y,int w,int h,const String &s){lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,ACCENT);label(s,x+10,y+(h-16)/2,2);}
 String clipped(String s,size_t n);
-void header(const String &s){WolfDeck::background(lcd);lcd.fillRect(0,0,320,33,PANEL);lcd.drawFastHLine(0,33,320,ACCENT);label(clipped(s,25),8,9,1,ACCENT);}
+void header(const String &s){WolfDeck::background(lcd);lcd.fillRect(0,0,320,33,PANEL);lcd.drawFastHLine(0,33,320,ACCENT);V62Icons::draw(lcd,V62Icons::pagesIcon(page),6,4);label(clipped(s,43),40,13,1,ACCENT);}
 void backButton(){button(8,198,104,35,"BACK");}
 void footer(const String &s){label(s,9,235,1,MUTED);}
 String clipped(String s,size_t n){if(s.length()>n)s=s.substring(0,n-2)+"..";return s;}
@@ -161,7 +149,7 @@ void draw(){
    int x=V62Menu::HomeX+(i%2)*V62Menu::HomeDX,y=V62Menu::HomeY+(i/2)*V62Menu::HomeDY;
    WolfDeck::panel(lcd,x,y,V62Menu::HomeW,V62Menu::HomeH);
    lcd.drawRoundRect(x,y,V62Menu::HomeW,V62Menu::HomeH,5,ACCENT);
-   label(homeTitles[i],x+8,y+4,2,WHITE);label(clipped(homeSubtitles[i],22),x+8,y+27,1,MUTED);
+   V62Icons::draw(lcd,V62Icons::homeIcon(i),x+5,y+1);label(homeTitles[i],x+35,y+7,2,WHITE);label(clipped(homeSubtitles[i],22),x+8,y+27,1,MUTED);
   }
   label("V6.2 FULL ACCESS",6,223,1,MUTED);break;
  }

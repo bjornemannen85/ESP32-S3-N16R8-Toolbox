@@ -25,6 +25,8 @@ jobs:
       - run: V62_JSDOM=/tmp/v62-dom/node_modules/jsdom node tests/web_test.cjs
       - run: python -m pip install Pillow==12.3.0
       - run: python ci/catalog.py --check
+      - run: python ci/wolfdeck_icon_firmware.py --check
+      - run: g++ -std=c++17 -Wall -Wextra -Werror -Itests/stubs -Isrc tests/icons_test.cpp -o /tmp/icons-test && /tmp/icons-test
       - run: python -m unittest discover -s tests -v
       - run: g++ -std=c++17 -Wall -Wextra -Werror -Itests/stubs -Isrc tests/server_test.cpp -o /tmp/server-test && /tmp/server-test
       - run: g++ -std=c++17 -Wall -Wextra -Werror -Itests/stubs -Isrc tests/wolfdeck_test.cpp -o /tmp/wolfdeck-test && /tmp/wolfdeck-test

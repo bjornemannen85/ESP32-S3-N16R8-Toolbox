@@ -65,6 +65,8 @@ static void v62Choose(size_t index){
  page=PROGRAM_ACTION;draw();
 }
 void v62Draw(){
+ lcd.fillRect(6,4,24,24,PANEL);
+ V62Icons::draw(lcd,page==PROGRAMS?V62Icons::categoriesIcon(v62Category):V62Icons::route(v6Server.programs[v62Selected].path.c_str()),6,4);
  if(page==PROGRAMS){
   v62Rebuild();
   label(String(v62Count())+" tools "+v62Filter,8,38,1,MUTED);
@@ -75,7 +77,8 @@ void v62Draw(){
     title=(p.method==HTTP_POST?"* ":"  ")+v62ProgramName(p.path);
    }
    int y=52+row*28;lcd.drawRoundRect(6,y,308,26,4,ACCENT);
-   label(clipped(title,48),10,y+8,1);
+   const auto &icon=index<v62Shortcuts.size()?V62Icons::pagesIcon(v62Shortcuts[index].target):V62Icons::route(v6Server.programs[v62Visible[index-v62Shortcuts.size()]].path.c_str());
+   V62Icons::draw(lcd,icon,8,y+1);label(clipped(title,44),38,y+8,1);
   }
   backButton();button(121,198,54,35,"<");button(181,198,54,35,">");button(241,198,72,35,"CATS");
  }else if(page==PROGRAM_ACTION){

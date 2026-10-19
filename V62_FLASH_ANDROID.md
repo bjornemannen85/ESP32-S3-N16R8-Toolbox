@@ -24,6 +24,9 @@ After boot:
 - Check the typed WOLF DECK logo and V6.2 version, progress and READY.
   Startup is visible for at least five seconds, including one second READY.
 - Check wallpaper, contrast and keyboard response on screen and web.
+- Check the app icons on all eight home tiles, hardware/radio tiles, program
+  lists and headers. Web category buttons, page links and selected programs
+  should show the same symbols. No icon files need separate uploading.
 - Settings -> WiFi Setup: leave open for at least 30 seconds; test all four
   input fields, symbol keyboard, DONE and BACK repeatedly.
 - Home -> All Tools: every installed API action has editable fields,

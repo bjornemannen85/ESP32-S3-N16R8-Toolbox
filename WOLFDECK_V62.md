@@ -66,6 +66,22 @@ touch, accepts repeated letters, highlights pressed letters and redraws only
 the input preview while typing. Passwords use actual asterisk masking.
 Mode, delete, space, DONE and multiline script content are supported.
 
+## Integrated app icons
+
+All 41 original WOLF DECK symbols are embedded. Touch uses the 24-pixel
+PROGMEM mask set (2,952 bytes) on the home tiles, category lists, hardware/radio
+tiles and page headers. Program actions/results use their app's icon. Existing
+button rectangles, touch polling, WiFi Setup and keyboard logic are unchanged.
+The shared mapping covers all 92 catalog routes and 29 native page IDs.
+Web category buttons, original-page links and the selected program heading
+show the matching SVG, served directly from flash at `/wolfdeck_icons/ID.svg`.
+Icon routes are excluded from the program catalog. No external font/icon CDN,
+filesystem image, extra RAM framebuffer or separate graphics flash is used.
+`ci/wolfdeck_icon_firmware.py --check` verifies checked-in firmware tables;
+it uses only Python standard-library modules. Raster design exports remain
+outside the application image. The existing app version remains V6.2; use
+SOURCE_COMMIT.txt to distinguish firmware revisions.
+
 ## Verification and limits
 
 The V6.2-only Actions workflow includes 11 Python regressions, native shared
