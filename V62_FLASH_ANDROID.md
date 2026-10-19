@@ -11,9 +11,11 @@ Extract it; do not flash the ZIP. Verify the BIN against SHA256SUMS.txt.
 For ESP32-S3 N16R8 / ES3C28P only, select ESP32-S3, 16 MB flash,
 DIO, 80 MHz in the Android flasher and write
 `esp32-s3-v6.2-full-access-nat-merged.bin` at **0x0**.
-Keep the working V6.1 BIN for rollback. Do not erase the entire flash;
-this image excludes NVS and LittleFS, so existing credentials and files can
-survive when flashing the unchanged V6.1 NAT partition layout.
+Keep the working V6.1 BIN for rollback. Record your Wi-Fi settings first:
+a merged image includes padding over the NVS area and may reset saved
+credentials and the admin token. Do not erase the entire flash. LittleFS at
+0x610000 lies beyond this firmware image and is not included; its data can
+survive when the unchanged V6.1 NAT partition layout is retained.
 
 After boot:
 - Settings -> WiFi Setup: leave open for at least 30 seconds; test all four
