@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include <WiFi.h>
 #include "v61_wifi.h"
 #include "v61_bundle81100.h"
@@ -13,7 +13,7 @@ static bool adcPinAllowed(int p) {
   // Actual physical accessibility MUST be verified before sampling.
   return (p==1 || p==2 || p==4 || p==5 || p==6 || p==7 );
 }
-static void routes(WebServer &s) {
+static void routes(V62Server &s) {
   s.on("/api/v61/adc/capabilities",HTTP_GET,[&s](){
     if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
     s.send(200,"application/json","{\"pins\":[1,2,4,5,6,7],\"manual_only\":true,\"output_enabled\":false,\"board_pins_verified\":false,\"voltage_limit\":\"3.3V maximum\"}");

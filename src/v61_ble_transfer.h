@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -107,7 +107,7 @@ static void stop(){if(!running)return;BLEDevice::getAdvertising()->stop();BLEDev
 static String status(){
  tick();
  return String("{\"enabled\":")+(running?"true":"false")+",\"receiving\":"+(receiving?"true":"false")+",\"bytes\":"+String(payload.length())+",\"expected\":"+String(expectedSize)+",\"result\":\""+V61WiFi::escapeJson(lastResult)+"\",\"hardware_tested\":false}";}
-static void routes(WebServer &s){
+static void routes(V62Server &s){
  s.on("/api/v61/ble-transfer/status",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",status());});
  s.on("/api/v61/ble-transfer/code",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",String("{\"code\":\"")+sessionCode+"\",\"enabled\":"+(running?"true":"false")+"}");});
  s.on("/api/v61/ble-transfer/start",HTTP_POST,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);bool ok=start();s.send(ok?200:503,"application/json",status());});

@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include "v61_wifi.h"
 // Experimental native USB HID. OFF by default until physical USB and stop test.
 #ifndef V61_ENABLE_NATIVE_HID
@@ -33,7 +33,7 @@ static String status(){
   ",\"native_hid_compiled\":"+(V61_ENABLE_NATIVE_HID?"true":"false")+
   ",\"hardware_tested\":false,\"reason\":\"Physical USB emergency-stop validation required before enabling\"}";
 }
-static void routes(WebServer &s){
+static void routes(V62Server &s){
  s.on("/api/v61/usb-hid/status",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",status());});
  s.on("/api/v61/usb-hid/start",HTTP_POST,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(423,"application/json",status());});
  s.on("/api/v61/usb-hid/stop",HTTP_POST,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);stop();s.send(200,"application/json",status());});

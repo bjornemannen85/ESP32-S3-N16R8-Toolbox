@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include "v61_wifi.h"
 #include "v61_ble_transfer.h"
 #include "v61_bundle81100.h"
@@ -10,7 +10,7 @@
 // Security-oriented release staging. USB HID remains disabled until
 // compatible USB stack and physical stop mechanism have been verified.
 namespace V61ReleaseGuard {
-static void routes(WebServer &s) {
+static void routes(V62Server &s) {
  s.on("/api/v61/release/status", HTTP_GET, [&s](){
   if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
   String out=String("{\"ble_receiver\":")+(V61BleTransfer::running?"true":"false")+

@@ -1,6 +1,6 @@
 #pragma once
 #include <LittleFS.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include "v61_wifi.h"
 
 // Script storage only. Never executes uploaded content.
@@ -15,7 +15,14 @@ static bool validName(const String &name){
  return false;
 }
 static String path(const String &name){return String("/scripts/")+name;}
-static void begin(){ready=LittleFS.begin(false);if(ready&&!LittleFS.exists("/scripts"))ready=LittleFS.mkdir("/scripts");}
+static void begin(){
+#if defined(V61_IDF_NAT_BUILD) && V61_IDF_NAT_BUILD
+ // The NAT partition table labels the LittleFS partition "storage".
+ ready=LittleFS.begin(false,"/littlefs",10,"storage");
+#else
+ ready=LittleFS.begin(false);
+#endif
+if(ready&&!LittleFS.exists("/scripts"))ready=LittleFS.mkdir("/scripts");}
 // V61_STAGE6_TRANSFER: authenticated Wi-Fi export and non-executing macro preview.
 static String preview(const String &body){
  String out="{\"execution\":false,\"commands\":[";int pos=0,count=0;
@@ -39,7 +46,7 @@ static String inspect(const String &body){
  }
  return String("{\"execution\":false,\"lines\":")+lines+",\"recognized\":"+recognized+",\"unknown\":"+unknown+"}";
 }
-static void routes(WebServer &s){
+static void routes(V62Server &s){
  s.on("/scripts/inspect",HTTP_GET,[&s](){
   if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
   String n=s.arg("name");if(!validName(n)||!(n.endsWith(".duck")||n.endsWith(".ds")||n.endsWith(".txt"))){s.send(400,"text/plain","Invalid macro filename");return;}

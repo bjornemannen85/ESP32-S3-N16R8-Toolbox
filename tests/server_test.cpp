@@ -1,0 +1,46 @@
+#include "v62_server.h"
+#include <cassert>
+#include <iostream>
+struct File {
+ String body;size_t pos=0;
+ bool available()const{return pos<body.length();}
+ char read(){return body[pos++];}
+ size_t size()const{return body.size();}
+};
+int main(){
+ V62Server s(80);int writes=0;
+ auto handler=[&](){
+  if(s.header("X-Cyberdeck-Token")!="secret-token-1234"){s.send(403,"text/plain","denied");return;}
+  if(s.arg("rx")!="4"){s.send(400,"text/plain","invalid pin");return;}
+  ++writes;s.send(200,"text/plain",s.arg("data"));
+ };
+ s.on("/uart/start",HTTP_POST,handler);
+ assert(s.programs.size()==1);
+ // A physical touch call must pass the existing authentication and validation.
+ assert(s.invoke(0,{{"rx","4"},{"data","hello"}},"wrong"));
+ assert(s.resultCode==403&&writes==0);
+ assert(s.invoke(0,{{"rx","19"}},"secret-token-1234"));
+ assert(s.resultCode==400&&writes==0);
+ assert(s.invoke(0,{{"rx","4"},{"data","hello"}},"secret-token-1234"));
+ assert(s.resultCode==200&&s.result=="hello"&&writes==1);
+ // Local arguments and credentials must never leak into a later web request.
+ assert(s.header("X-Cyberdeck-Token").empty());assert(s.arg("rx").empty());
+ s.handlers[0]();assert(s.networkCode==403&&writes==1);
+ s.networkHeaders["X-Cyberdeck-Token"]="secret-token-1234";
+ s.networkArgs["rx"]="4";s.networkArgs["data"]="web";
+ s.handlers[0]();assert(s.networkBody=="web"&&writes==2);
+ // Repeated paths in the legacy bundle use the same first-match semantics.
+ s.on("/uart/start",HTTP_POST,[&](){++writes;});
+ assert(s.programs.size()==1);
+ assert(!s.invoke(100,{},"secret-token-1234"));assert(writes==2);
+ // Local preview memory is bounded, even for downloads/backup output.
+ s.on("/large",HTTP_GET,[&](){s.send(200,"text/plain",String(60000,'x'));});
+ assert(s.invoke(1,{},""));assert(s.result.size()<50000);
+ File file{String("file data"),0};
+ s.on("/file",HTTP_GET,[&](){s.streamFile(file,"text/plain");});
+ assert(s.invoke(2,{},""));assert(s.result=="file data"&&s.resultCode==200);
+ // Nested dispatch must fail without corrupting the active request context.
+ s.on("/nested",HTTP_GET,[&](){assert(!s.invoke(0,{},""));s.send(201,"text/plain","outer");});
+ assert(s.invoke(3,{},""));assert(s.resultCode==201&&s.result=="outer");
+ std::cout<<"PASS: shared handlers, authentication, validation, context isolation, duplicate routes, bounds, streaming, reentrancy\n";
+}

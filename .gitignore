@@ -2,3 +2,10 @@
 .vscode/
 *.log
 .DS_Store
+
+# V6.2 host test cache
+__pycache__/
+idf_arduino_nat_probe/build/
+idf_arduino_nat_probe/managed_components/
+idf_arduino_nat_probe/sdkconfig
+idf_arduino_nat_probe/sdkconfig.old

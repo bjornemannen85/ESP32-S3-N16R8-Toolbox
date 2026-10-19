@@ -30,7 +30,7 @@ Adafruit_ILI9341 lcd(&lcdSPI,LCD_DC,LCD_CS,-1);
 constexpr uint16_t BG=0x0008,PANEL=0x1084,ACCENT=0x05FF,WHITE=0xFFFF,MUTED=0x9CF3,ORANGE=0xFD20;
 constexpr uint16_t BLUE=0x047F,PURPLE=0xA81F,GREEN=0x07E0,RED=0xF945,YELLOW=0xFFE0;
 
-enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, PAGE_GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES, WIFI_SETUP, WIFI_KEYBOARD };
+enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, PAGE_GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES, WIFI_SETUP, WIFI_KEYBOARD, PROGRAMS, PROGRAM_ACTION, PROGRAM_RESULT, PAGE_COUNT };
 Page page=HOME, parent=HOME;
 void draw();
 Page history[12]; int historyDepth=0;
@@ -41,23 +41,34 @@ uint32_t lastTouch=0,lastSystemDraw=0;
 String wifiLines[40],bleLines[40]; int wifiCount=-1,bleCount=-1;
 int wifiStored=0,bleStored=0,wifiOffset=0,bleOffset=0;
 int wifiRssi[40]={0},bleRssi[40]={0};
-const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER"};
+const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER","WIFI SETUP","WIFI KEYBOARD","ALL PROGRAMS","PROGRAM","RESULT"};
+static_assert(sizeof(names)/sizeof(names[0])==PAGE_COUNT,"Every screen must have a title");
+void v62Draw();
+void v62Touch(uint16_t x,uint16_t y);
+void v62Open(const String &filter);
 const Page radioItems[]={WIFI,BLE,NFC,SUBGHZ,IR};
 const Page hwItems[]={PAGE_GPIO,UART,I2C,SPI_DIAG,STORAGE,MODULES};
-const Page toolItems[]={SYSTEM,TOUCH,SETTINGS,LOGS};
+const Page toolItems[]={PROGRAMS,SYSTEM,TOUCH,SETTINGS,LOGS,HARDWARE};
 String wifiEditSSID="", wifiEditPass="", wifiEditApSSID="", wifiEditApPass="";
 String *wifiEditTarget=nullptr; Page wifiReturnPage=WIFI_SETUP;
-bool wifiCaps=false; int wifiField=0;
+int wifiField=0;
+int wifiKeyboardMode=0;
+String v62KeyTitle="";
+const char *wifiKeyRows[3][4]={
+ {"1234567890","qwertyuiop","asdfghjkl-","zxcvbnm._@"},
+ {"1234567890","QWERTYUIOP","ASDFGHJKL-","ZXCVBNM._@"},
+ {"!@#$%^&*()","[]{}<>/\\|=","+-_:;,.?~`","\"'01234567"}
+};
 void wifiOpenKeyboard(String &target){wifiEditTarget=&target;page=WIFI_KEYBOARD;draw();}
 void wifiKeyboardKey(uint16_t x,uint16_t y){
  if(y>=45&&y<181){
    int row=(y-45)/34,col=x/32;
-   const char *rows[]={"1234567890","qwertyuiop","asdfghjkl-","zxcvbnm._@"};
-   if(row>=0&&row<4&&col>=0&&col<10){char c=rows[row][col];if(c&&wifiEditTarget&&wifiEditTarget->length()<63){if(wifiCaps&&c>='a'&&c<='z')c-=32;*wifiEditTarget+=c;}draw();}
- }else if(y>=185){
-   if(x<80){wifiCaps=!wifiCaps;draw();}
+   const char **rows=wifiKeyRows[wifiKeyboardMode];
+   if(row>=0&&row<4&&col>=0&&col<10){char c=rows[row][col];if(c&&wifiEditTarget&&wifiEditTarget->length()<(wifiReturnPage==PROGRAM_ACTION?8192u:63u)){*wifiEditTarget+=c;}draw();}
+ }else if(y>=185&&y<225){
+   if(x<80){wifiKeyboardMode=(wifiKeyboardMode+1)%3;draw();}
    else if(x<160){if(wifiEditTarget&&wifiEditTarget->length())wifiEditTarget->remove(wifiEditTarget->length()-1);draw();}
-   else if(x<240){if(wifiEditTarget&&wifiEditTarget->length()<63)*wifiEditTarget+=' ';draw();}
+   else if(x<240){if(wifiEditTarget&&wifiEditTarget->length()<(wifiReturnPage==PROGRAM_ACTION?8192u:63u))*wifiEditTarget+=(y>=209?'\n':' ');draw();}
    else{page=wifiReturnPage;draw();}
  }
 }
@@ -112,7 +123,8 @@ void initStorage(){
   v6Log(String("SD: ")+sdState);
 }
 void draw(){
- header(page==HOME?"CYBERDECK V6.1 PRO":names[page]);
+ if(page==WIFI_KEYBOARD)header("EDIT "+String(wifiField==0?"HOME SSID":wifiField==1?"HOME PASS":wifiField==2?"AP SSID":wifiField==3?"AP PASS":v62KeyTitle));
+ else header(page==HOME?"CYBERDECK V6.2 FULL":(page<PAGE_COUNT?names[page]:"UNKNOWN"));
  switch(page){
  case HOME:{
   const Page homeItems[]={WIFI,BLE,NFC,SUBGHZ,IR,PAGE_GPIO,UART,I2C,STORAGE,SYSTEM,SETTINGS,TOOLS};
@@ -121,11 +133,12 @@ void draw(){
    int col=i%4,row=i/4;
    tile(5+col*79,39+row*59,73,54,homeNames[i],homeItems[i]);
   }
-  label("ES3C28P V6.1 SAFE MODE",6,223,1,MUTED);break;
+  label("V6.2 FULL ACCESS",6,223,1,MUTED);break;
  }
  case RADIO: menu(radioItems,5);break;
  case HARDWARE: menu(hwItems,6);break;
- case TOOLS: menu(toolItems,4);break;
+ case TOOLS: menu(toolItems,6);break;
+ case PROGRAMS:case PROGRAM_ACTION:case PROGRAM_RESULT:v62Draw();break;
 
  case SYSTEM:{
   int vals[]={int(ESP.getCpuFreqMHz()),
@@ -199,17 +212,21 @@ void draw(){
    backButton();break;
  }
  case WIFI_KEYBOARD:{
-   label("EDIT: "+String(wifiField==0?"HOME SSID":wifiField==1?"HOME PASS":wifiField==2?"AP SSID":"AP PASS"),8,35,1,ACCENT);
-   const char *rows[]={"1234567890","qwertyuiop","asdfghjkl-","zxcvbnm._@"};
+   String value=wifiEditTarget?*wifiEditTarget:String("");
+   bool secret=wifiField==1||wifiField==3||(wifiField==4&&(v62KeyTitle=="password"||v62KeyTitle=="token"));
+   if(secret)value=String(value.length(),'*');
+   value.replace("\n"," ");if(value.length()>50)value=value.substring(value.length()-50);
+   label(value,8,35,1,ACCENT);
+   const char **rows=wifiKeyRows[wifiKeyboardMode];
    for(int r=0;r<4;r++)for(int c=0;c<10;c++){
      char k=rows[r][c];if(!k)continue;
      int x=c*32,y=45+r*34;lcd.drawRoundRect(x+1,y+1,30,31,3,ACCENT);
-     if(wifiCaps&&k>='a'&&k<='z')k-=32;
+
      label(String(k),x+10,y+9,1);
    }
-   label(wifiCaps?"ABC":"abc",8,195,1,ACCENT);
+   label(wifiKeyboardMode==2?"SYM":wifiKeyboardMode==1?"ABC":"abc",8,195,1,ACCENT);
    label("DEL",91,195,1,ACCENT);
-   label("SPACE",168,195,1,ACCENT);
+   label("SPACE/NL",165,195,1,ACCENT);
    label("DONE",253,195,1,GREEN);break;
  }
  case SETTINGS:
@@ -221,10 +238,11 @@ void draw(){
   label(V61WiFi::adminToken,12,57,1,WHITE);
   label("WiFi manager: /wifi",12,79,1,GREEN);
   label("Tap WIFI SETUP below",12,101,1,GREEN);backButton();button(121,198,191,35,"WIFI SETUP");break;
- case LOGS:
-  label("Runtime event log",12,58,1);
-  label("Boot OK",12,80,1,MUTED);
-  label(touchOK?"Touch OK":"Touch unavailable",12,102,1,MUTED);backButton();break;
+ case LOGS:{
+  int row=0;for(int i=0;i<12;i++){int j=(v6EventPos+i)%12;if(v6Events[j].length())label(clipped(v6Events[j],49),8,43+row++*12,1,MUTED);}
+  backButton();break;
+ }
+ default:page=HOME;draw();break;
  }
 }
 void scanWifi(){v6Log("WiFi scan started");
@@ -242,6 +260,7 @@ void scanWifi(){v6Log("WiFi scan started");
  WiFi.scanDelete();draw();
 }
 void scanBle(){v6Log("BLE scan started");
+ if(V61BleTransfer::running){v6Log("Stop BLE receiver before scanning");draw();return;}
  header("BLE SCANNING...");
  for(auto &line:bleLines)line="";
  bleStored=0;bleOffset=0;
@@ -266,15 +285,28 @@ void scanBle(){v6Log("BLE scan started");
  }
  scanner->clearResults();draw();
 }
-void enter(Page p,Page from){if(historyDepth<12)history[historyDepth++]=page;parent=from;page=p;draw();}
-void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();V61WiFi::start();v6SSID=V61WiFi::apSSID;v6Password=V61WiFi::apPassword;wifiEditApSSID=v6SSID;V61WiFi::routes(v6Server);V61Scripts::begin();V61Scripts::routes(v6Server);V61Bundle2640::routes(v6Server);V61Bundle4160::routes(v6Server);V61Bundle6180::routes(v6Server);V61Bundle81100::routes(v6Server);V61Bundle101120::routes(v6Server);V61BleTransfer::routes(v6Server);V61ReleaseGuard::routes(v6Server);V61USBHID::routes(v6Server);V61MicroSD::routes(v6Server);V61Mega::routes(v6Server);V61Bundle::routes(v6Server);/* SDMMC pin map not yet verified: initStorage() disabled */ Serial.printf("ES3C28P V4.9.1 touch=%s\n",touchOK?"YES":"NO");draw();}
+// Catalog uses the same handlers as web, including authentication and validation.
+#include "v62_ui.h"
+void enter(Page p,Page from){
+ String filter="";
+ if(p==UART)filter="/uart/";
+ else if(p==I2C)filter="i2c";
+ else if(p==STORAGE)filter="/sd/";
+ else if(p==PAGE_GPIO)filter="/adc/";
+ else if(p==SPI_DIAG)filter="/hardware/plan";
+ if(filter.length()){v62Open(filter);return;}
+ if(p==PROGRAMS){v62Filter="";v62Offset=0;}
+ if(historyDepth<12)history[historyDepth++]=page;
+ parent=from;page=p;draw();}
+void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();V61WiFi::start();v6SSID=V61WiFi::apSSID;v6Password=V61WiFi::apPassword;wifiEditApSSID=v6SSID;V61WiFi::routes(v6Server);V61Scripts::begin();V61Scripts::routes(v6Server);V61Bundle2640::routes(v6Server);V61Bundle4160::routes(v6Server);V61Bundle6180::routes(v6Server);V61Bundle81100::routes(v6Server);V61Bundle101120::routes(v6Server);V61BleTransfer::routes(v6Server);V61ReleaseGuard::routes(v6Server);V61USBHID::routes(v6Server);V61MicroSD::routes(v6Server);V61Mega::routes(v6Server);V61Bundle::routes(v6Server);v62Register();/* SDMMC pin map not yet verified: initStorage() disabled */ Serial.printf("ES3C28P V6.2 touch=%s\n",touchOK?"YES":"NO");draw();}
 void loop(){
  v6Server.handleClient();V61WiFi::tick();V61Bundle81100::tick();V61BleTransfer::tick();
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
  if(pressed&&page==TOUCH&&y<185)lcd.fillCircle(x,y,3,BLUE);
  if(pressed&&!lastPressed&&millis()-lastTouch>220){
   lastTouch=millis();
-  if(page==HOME){
+  if(page==PROGRAMS||page==PROGRAM_ACTION||page==PROGRAM_RESULT){v62Touch(x,y);}
+  else if(page==HOME){
    if(x>=5&&x<317&&y>=39&&y<211){
     int col=(int(x)-5)/79,row=(int(y)-39)/59;
     int lx=(int(x)-5)%79,ly=(int(y)-39)%59;
@@ -285,16 +317,16 @@ void loop(){
    }
   }else if(page==WIFI_KEYBOARD){wifiKeyboardKey(x,y);}
   else if(page==WIFI_SETUP){
-    if(y>=190&&x<125){page=SETTINGS;draw();}
+    if(y>=198&&y<233&&x>=8&&x<112){goBack();}
     else if(y>=55&&y<130){
       wifiField=(y-55)/19;
       if(wifiField>3)wifiField=3;
       String *fields[]={&wifiEditSSID,&wifiEditPass,&wifiEditApSSID,&wifiEditApPass};
-      wifiOpenKeyboard(*fields[wifiField]);
+      wifiReturnPage=WIFI_SETUP;wifiOpenKeyboard(*fields[wifiField]);
     }else if(y>=151&&y<190){
       if(x<156){
-        if(V61WiFi::validSSID(wifiEditSSID)&&wifiEditPass.length()>=8){
-          V61WiFi::upsert(wifiEditSSID,wifiEditPass,10);v6Log("STA profile saved");
+        if(V61WiFi::validSSID(wifiEditSSID)&&(wifiEditPass.isEmpty()||V61WiFi::validPass(wifiEditPass))){
+          bool ok=V61WiFi::upsert(wifiEditSSID,wifiEditPass,10);v6Log(ok?"STA profile saved":"STA profile save failed");
         }else v6Log("STA fields invalid");
       }else{
         if(V61WiFi::setAP(wifiEditApSSID,wifiEditApPass)){
@@ -304,11 +336,11 @@ void loop(){
     }
   }else if(page==SETTINGS&&y>=190&&x>=120){
     wifiEditApSSID=V61WiFi::apSSID;wifiEditApPass="";
-    page=WIFI_SETUP;draw();
+    enter(WIFI_SETUP,SETTINGS);
   }else if(y>=190&&x<125){goBack();}
   else if(page==RADIO||page==HARDWARE||page==TOOLS){
    const Page *items=page==RADIO?radioItems:page==HARDWARE?hwItems:toolItems;
-   int count=page==RADIO?5:page==HARDWARE?6:4;
+   int count=page==RADIO?5:6;
    if(y>=42&&y<183){int row=(int(y)-42)/49,col=x<160?0:1,index=row*2+col;
     if(index>=0&&index<count&&y<42+row*49+43)enter(items[index],page);
    }
@@ -324,6 +356,7 @@ void loop(){
   }
  }
  lastPressed=pressed;
+ v62SyncBle();
  if(page==SYSTEM&&millis()-lastSystemDraw>2500){lastSystemDraw=millis();draw();}
  delay(25);
 }

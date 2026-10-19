@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include <WiFi.h>
 #include <LittleFS.h>
 #include "v61_wifi.h"
@@ -11,8 +11,8 @@ struct Snapshot { unsigned long at; int count; int strongest; };
 static Snapshot history[12];
 static uint8_t head=0, used=0;
 static String q(const String &s){return String("\"")+V61WiFi::escapeJson(s)+"\"";}
-static bool auth(WebServer &s){if(V61WiFi::authorized(s))return true;V61WiFi::forbidden(s);return false;}
-static void routes(WebServer &s){
+static bool auth(V62Server &s){if(V61WiFi::authorized(s))return true;V61WiFi::forbidden(s);return false;}
+static void routes(V62Server &s){
  s.on("/api/v61/v2/features",HTTP_GET,[&s](){if(!auth(s))return;
   s.send(200,"application/json","{\"bundle\":\"41-60\",\"wifi_history\":true,\"script_search\":true,\"ble_scan\":\"existing_touch_ui_only\",\"ble_file_transfer\":false,\"usb_hid\":false,\"nat\":false,\"uart_active\":false,\"gpio_active\":false,\"spi_active\":false}");});
  s.on("/api/v61/v2/wifi/snapshot",HTTP_GET,[&s](){if(!auth(s))return;

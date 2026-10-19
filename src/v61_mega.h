@@ -1,14 +1,14 @@
 #pragma once
 #include <Arduino.h>
 #include <LittleFS.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include "v61_scripts.h"
 #include "v61_wifi.h"
 
 // V6.1 stages 10-15: storage maintenance, backup, inventory and diagnostics.
 // No execution, HID, SD pin access, or radio transmission.
 namespace V61Mega {
-static void routes(WebServer &s) {
+static void routes(V62Server &s) {
  s.on("/scripts/storage", HTTP_GET, [&s](){
   if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
   if(!V61Scripts::ready){s.send(503,"text/plain","LittleFS unavailable");return;}

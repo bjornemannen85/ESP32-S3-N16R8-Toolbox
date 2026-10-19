@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <SD_MMC.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include "v61_wifi.h"
 // ES3C28P candidate SDMMC mapping; no mount on boot.
 namespace V61MicroSD {
@@ -24,7 +24,7 @@ static bool mount(){
  mounted=true;lastError="ok";return true;
 }
 static bool safePath(const String &p){if(p.length()<1||p.length()>96||p[0]!='/'||p.indexOf("..")>=0||p.indexOf('\\')>=0)return false;for(char c:p)if((unsigned char)c<32)return false;return true;}
-static void routes(WebServer &s){
+static void routes(V62Server &s){
  s.on("/api/v61/sd/status",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",json());});
  s.on("/api/v61/sd/mount",HTTP_POST,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);bool ok=mount();s.send(ok?200:503,"application/json",json());});
  s.on("/api/v61/sd/unmount",HTTP_POST,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);unmount();s.send(200,"application/json",json());});

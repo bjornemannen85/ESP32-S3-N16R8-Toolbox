@@ -1,7 +1,7 @@
 #pragma once
 #include <WiFi.h>
 #include <Preferences.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include <DNSServer.h>
 #include <HTTPClient.h>
 #include <esp_system.h>
@@ -102,11 +102,11 @@ static void tick(){
  lastUplink=uplink;
  if(WiFi.status()!=WL_CONNECTED&&(lastConnect==0||millis()-lastConnect>30000))connectBest();
 }
-static bool authorized(WebServer &s){String t=s.header("X-Cyberdeck-Token");if(t.length()==0)t=s.arg("token");return t.length()>=16&&t==adminToken;}
-static void forbidden(WebServer &s){s.send(403,"application/json","{\"error\":\"admin token required\"}");}
+static bool authorized(V62Server &s){String t=s.header("X-Cyberdeck-Token");if(t.length()==0)t=s.arg("token");return t.length()>=16&&t==adminToken;}
+static void forbidden(V62Server &s){s.send(403,"application/json","{\"error\":\"admin token required\"}");}
 static String status(){String j="{\"ap_ssid\":\""+escapeJson(apSSID)+"\",\"ap_ip\":\""+WiFi.softAPIP().toString()+"\",\"clients\":"+String(WiFi.softAPgetStationNum())+",\"sta_connected\":"+String(WiFi.status()==WL_CONNECTED?"true":"false")+",\"sta_ssid\":\""+escapeJson(WiFi.status()==WL_CONNECTED?WiFi.SSID():"")+"\",\"sta_ip\":\""+(WiFi.status()==WL_CONNECTED?WiFi.localIP().toString():String(""))+"\",\"nat_active\":"+String(natActive?"true":"false")+",\"nat_supported\":"+String(V61_NAPT_AVAILABLE?"true":"false")+",\"nat_requested\":"+String(natRequested?"true":"false")+",\"nat_message\":\""+escapeJson(natMessage)+"\",\"networks\":[";
  for(int i=0;i<(int)known.size();i++){if(i)j+=",";j+="{\"ssid\":\""+escapeJson(known[i].ssid)+"\",\"priority\":"+String(known[i].priority)+"}";}return j+"]}";}
-static void routes(WebServer &s){
+static void routes(V62Server &s){
  const char *headers[]={"X-Cyberdeck-Token"};s.collectHeaders(headers,1);
  s.on("/wifi/nat",HTTP_POST,[&s](){if(!authorized(s))return forbidden(s);String val=s.arg("enabled");if(val!="0"&&val!="1"){s.send(400,"text/plain","enabled must be 0 or 1");return;}natRequested=val=="1";prefs.putBool("nat",natRequested);if(!natRequested){disableNat();natMessage="NAT disabled";}else if(WiFi.status()==WL_CONNECTED){enableNat();}else natMessage="Waiting for STA connection";s.send(200,"application/json",status());});
  s.on("/wifi/tcp",HTTP_GET,[&s](){if(!authorized(s))return forbidden(s);String host=s.arg("host");int port=s.arg("port").toInt();if(host.isEmpty()||host.length()>120||port<1||port>65535||host.indexOf('/')>=0){s.send(400,"text/plain","Invalid host or port");return;}if(WiFi.status()!=WL_CONNECTED){s.send(503,"text/plain","STA disconnected");return;}WiFiClient client;client.setTimeout(2000);unsigned long begin=millis();bool ok=client.connect(host.c_str(),(uint16_t)port,2000);unsigned long elapsed=millis()-begin;client.stop();s.send(ok?200:503,"application/json",String("{\"ok\":")+(ok?"true":"false")+",\"latency_ms\":"+String(elapsed)+"}");});

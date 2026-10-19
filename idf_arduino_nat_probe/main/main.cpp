@@ -5,7 +5,7 @@ extern void loop();
 
 extern "C" void app_main(void) {
     initArduino();
-    ESP_LOGI("cyberdeck", "Starting full Cyberdeck V6.1");
+    ESP_LOGI("cyberdeck", "Starting Cyberdeck V6.2 Full Access");
     setup();
 
     while (true) {

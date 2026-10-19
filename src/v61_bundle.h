@@ -1,14 +1,14 @@
 #pragma once
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include <LittleFS.h>
 #include <Wire.h>
 #include "v61_wifi.h"
 #include "v61_scripts.h"
 namespace V61Bundle {
 static String quote(const String &v){return String("\"")+V61WiFi::escapeJson(v)+"\"";}
-static void routes(WebServer &s){
+static void routes(V62Server &s){
  // 16: consolidated read-only dashboard, with links to existing tools.
  s.on("/toolbox",HTTP_GET,[&s](){s.send(200,"text/html; charset=utf-8",R"PAGE(<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cyberdeck Tools</title><style>body{background:#071729;color:#dff;font:16px sans-serif;max-width:700px;margin:20px auto;padding:12px}a{color:#4df;display:block;padding:9px;border:1px solid #257;margin:8px 0;border-radius:6px}</style><h2>Cyberdeck V6.1 Toolbox</h2><p>Read-only diagnostics require the admin token. Use the existing Wi-Fi and Script Manager pages for authenticated actions.</p><a href="/wifi">Wi-Fi Manager</a><a href="/scripts">Script Manager</a><a href="/toolbox/help">API reference</a><a href="/">Home</a>)PAGE");});
  // 17: API documentation.

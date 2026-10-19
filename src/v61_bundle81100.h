@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <HardwareSerial.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include <WiFi.h>
 #include "v61_wifi.h"
 
@@ -17,7 +17,7 @@ static const size_t CAPTURE_MAX=2048;
 static unsigned long received=0, transmitted=0;
 static bool pinAllowed(int p){
   // Do not use flash/PSRAM, boot strapping, onboard LCD, touch, USB, or SD candidate pins.
-  if(p<1||p>48)return false;
+  if(p<1||p>48||(p>=26&&p<=37))return false;
   const int reserved[]={0,3,10,11,12,13,15,16,18,19,20,38,39,40,41,45,46,47,48};
   for(int x:reserved)if(p==x)return false;
   return true;
@@ -39,7 +39,7 @@ static String state(){
     ",\"transmitted\":"+String(transmitted)+
     ",\"capture_hex\":\""+capture+"\",\"hardware_tested\":false}";
 }
-static void routes(WebServer &s){
+static void routes(V62Server &s){
   s.on("/api/v61/uart/status",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",state());});
   s.on("/api/v61/uart/start",HTTP_POST,[&s](){
     if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);

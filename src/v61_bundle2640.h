@@ -1,6 +1,6 @@
 #pragma once
 #include <Arduino.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include <WiFi.h>
 #include <LittleFS.h>
 #include <Wire.h>
@@ -10,7 +10,7 @@
 // Read-only diagnostics and authenticated script import. No HID, NAT, SD or RF writes.
 namespace V61Bundle2640 {
 static String jsonString(const String &s){return String("\"")+V61WiFi::escapeJson(s)+"\"";}
-static void routes(WebServer &s){
+static void routes(V62Server &s){
  s.on("/api/v61/features",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
   s.send(200,"application/json","{\"bundle\":\"26-40\",\"wifi\":true,\"scripts\":true,\"ble_transfer\":false,\"usb_hid\":false,\"nat\":false,\"sd\":false,\"rf\":false,\"nfc\":false,\"ir\":false}");});
  s.on("/api/v61/network",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);

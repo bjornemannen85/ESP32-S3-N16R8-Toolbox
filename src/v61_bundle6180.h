@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WebServer.h>
+#include "v62_server.h"
 #include <LittleFS.h>
 #include "v61_wifi.h"
 #include "v61_scripts.h"
@@ -45,7 +45,7 @@ static String csvSafe(String s){
  if(s.startsWith("=")||s.startsWith("+")||s.startsWith("-")||s.startsWith("@"))s="'"+s;
  return String("\"")+s+"\"";
 }
-static void routes(WebServer &s){
+static void routes(V62Server &s){
  s.on("/api/v61/scan/live",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",scanJson());});
  s.on("/api/v61/scan/history",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",historyJson());});
  s.on("/api/v61/scan/history.csv",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
