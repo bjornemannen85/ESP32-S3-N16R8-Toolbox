@@ -45,7 +45,6 @@ if(CONFIG_TINYUSB_ENABLED)
 
   set(includes_private
       # tusb:
-      "${COMPONENT_DIR}/tinyusb/hw/bsp/"
       "${COMPONENT_DIR}/tinyusb/src/"
       "${COMPONENT_DIR}/tinyusb/src/device"
       "${COMPONENT_DIR}/tinyusb/src/portable/synopsys/dwc2"
