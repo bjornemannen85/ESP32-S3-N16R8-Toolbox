@@ -1,7 +1,13 @@
 #pragma once
 #include "v62_access.h"
+#include <algorithm>
 static String v62Filter="";
+static int v62Category=V62Menu::All;
+struct V62Shortcut { const char *title; Page target; };
+static std::vector<V62Shortcut> v62Shortcuts;
+String v62MenuTitle(){return v62Category<0?String("ALL TOOLS"):String(V62Menu::labels[v62Category]);}
 static std::vector<size_t> v62Visible;
+static size_t v62Count(){return v62Shortcuts.size()+v62Visible.size();}
 static std::vector<V62Server::Field> v62Arguments;
 static size_t v62Offset=0,v62Selected=0,v62ResultOffset=0;
 static bool v62WasReceiver=false;
@@ -16,11 +22,35 @@ static void v62Rebuild(){
  for(size_t i=0;i<v6Server.programs.size();i++){
   const auto &p=v6Server.programs[i];
   if(!v62IsPage(p.path)&&!p.path.startsWith("/access")&&
+    (v62Category<0||V62Menu::category(p.path.c_str())==v62Category)&&
     (!v62Filter.length()||p.path.indexOf(v62Filter)>=0))v62Visible.push_back(i);
  }
+ std::sort(v62Visible.begin(),v62Visible.end(),[](size_t a,size_t b){
+  return v62ProgramName(v6Server.programs[a].path).compareTo(v62ProgramName(v6Server.programs[b].path))<0;
+ });
 }
 void v62Open(const String &filter){
- v62Filter=filter;v62Offset=0;v62Rebuild();
+ v62Filter=filter;v62Category=V62Menu::All;v62Shortcuts.clear();v62Offset=0;v62Rebuild();
+ if(historyDepth<12)history[historyDepth++]=page;
+ page=PROGRAMS;draw();
+}
+void v62OpenCategory(int category){
+ v62Category=category;v62Filter="";v62Offset=0;v62Shortcuts.clear();
+ if(category==V62Menu::Network)v62Shortcuts.push_back({"WiFi scanner",WIFI});
+ if(category==V62Menu::Bluetooth)v62Shortcuts.push_back({"BLE scanner",BLE});
+ if(category==V62Menu::System){
+  v62Shortcuts.push_back({"System monitor",SYSTEM});v62Shortcuts.push_back({"Event log",LOGS});
+  v62Shortcuts.push_back({"Touch test",TOUCH});
+ }
+ if(category==V62Menu::Settings){
+  v62Shortcuts.push_back({"Connection / admin settings",SETTINGS});
+  v62Shortcuts.push_back({"WiFi setup",WIFI_SETUP});
+ }
+ if(category==V62Menu::Modules){
+  v62Shortcuts.push_back({"NFC / PN532 status",NFC});v62Shortcuts.push_back({"CC1101 status",SUBGHZ});
+  v62Shortcuts.push_back({"IR status",IR});v62Shortcuts.push_back({"Module inventory",MODULES});
+ }
+ v62Rebuild();
  if(historyDepth<12)history[historyDepth++]=page;
  page=PROGRAMS;draw();
 }
@@ -37,13 +67,17 @@ static void v62Choose(size_t index){
 void v62Draw(){
  if(page==PROGRAMS){
   v62Rebuild();
-  label(String(v62Visible.size())+" programs "+v62Filter,8,38,1,MUTED);
-  for(size_t row=0;row<5&&v62Offset+row<v62Visible.size();row++){
-   const auto &p=v6Server.programs[v62Visible[v62Offset+row]];
+  label(String(v62Count())+" tools "+v62Filter,8,38,1,MUTED);
+  for(size_t row=0;row<5&&v62Offset+row<v62Count();row++){
+   size_t index=v62Offset+row;String title;
+   if(index<v62Shortcuts.size())title=String("> ")+v62Shortcuts[index].title;
+   else{const auto &p=v6Server.programs[v62Visible[index-v62Shortcuts.size()]];
+    title=(p.method==HTTP_POST?"* ":"  ")+v62ProgramName(p.path);
+   }
    int y=52+row*28;lcd.drawRoundRect(6,y,308,26,4,ACCENT);
-   label((p.method==HTTP_POST?"* ":"  ")+clipped(v62ProgramName(p.path),46),10,y+8,1);
+   label(clipped(title,48),10,y+8,1);
   }
-  backButton();button(121,198,54,35,"<");button(181,198,54,35,">");button(241,198,72,35,"ALL");
+  backButton();button(121,198,54,35,"<");button(181,198,54,35,">");button(241,198,72,35,"CATS");
  }else if(page==PROGRAM_ACTION){
   const auto &p=v6Server.programs[v62Selected];
   label(clipped(v62ProgramName(p.path),50),8,39,1,ACCENT);
@@ -52,7 +86,7 @@ void v62Draw(){
    const auto &f=v62Arguments[i];int y=56+i*29;
    lcd.drawRoundRect(6,y,308,27,4,ACCENT);
    bool secret=f.name=="password"||f.name=="token";
-   label(clipped(f.name+": "+(secret?String(f.value.length(),'*'):f.value),48),10,y+8,1);
+   label(clipped(f.name+": "+(secret?v62Mask(f.value.length()):f.value),48),10,y+8,1);
   }
   label(p.method==HTTP_POST?"Manual action: RUN applies changes":"Tap any field to edit",8,182,1,ORANGE);
   backButton();button(181,198,132,35,"RUN");
@@ -74,8 +108,8 @@ void v62Touch(uint16_t x,uint16_t y){
    else if(page==PROGRAM_RESULT){page=PROGRAM_ACTION;draw();}
    else{page=PROGRAMS;draw();}
   }else if(page==PROGRAMS){
-   if(x>=241){v62Filter="";v62Offset=0;}
-   else if(x>=181&&v62Offset+5<v62Visible.size())v62Offset+=5;
+   if(x>=241){page=HOME;historyDepth=0;draw();return;}
+   else if(x>=181&&v62Offset+5<v62Count())v62Offset+=5;
    else if(x>=121&&x<175)v62Offset=v62Offset>=5?v62Offset-5:0;
    draw();
   }else if(page==PROGRAM_ACTION&&x>=181){
@@ -91,7 +125,9 @@ void v62Touch(uint16_t x,uint16_t y){
    }
   }
  }else if(page==PROGRAMS&&y>=52&&y<192){
-  size_t row=(y-52)/28;if(v62Offset+row<v62Visible.size())v62Choose(v62Visible[v62Offset+row]);
+  size_t index=v62Offset+(y-52)/28;
+  if(index<v62Shortcuts.size())enter(v62Shortcuts[index].target,PROGRAMS);
+  else if(index<v62Count())v62Choose(v62Visible[index-v62Shortcuts.size()]);
  }else if(page==PROGRAM_ACTION&&y>=56&&y<172){
   size_t i=(y-56)/29;if(i<v62Arguments.size()){
    wifiReturnPage=PROGRAM_ACTION;wifiField=4;v62KeyTitle=v62Arguments[i].name;

@@ -6,6 +6,8 @@ namespace WolfDeck {
 static uint16_t row[320];
 static unsigned progress=0;
 static bool booting=false;
+static unsigned long bootStarted=0;
+static constexpr unsigned long BootDurationMs=5000,ReadyHoldMs=1000;
 static uint16_t dim565(uint16_t c,unsigned shifts){
  while(shifts--)c=(c&0xf7deu)>>1;
  return c;
@@ -29,16 +31,22 @@ template<class LCD> static void background(LCD &lcd){
 template<class LCD> static void panel(LCD &lcd,int x,int y,int w,int h){
  region(lcd,WolfDeckAssets::displayPixels,WolfDeckAssets::displayPalette,x,y,w,h,2);
 }
-template<class LCD> static void bootLogo(LCD &lcd,uint16_t color){
- lcd.setTextSize(4);lcd.setTextColor(color);lcd.setCursor(52,22);lcd.print("WOLF DECK");
+template<class LCD> static void typeLine(LCD &lcd,const char *text,int x,int y,int size,unsigned pause){
+ char prefix[24]={0};
+ for(unsigned i=0;text[i]&&i<sizeof(prefix)-1;i++){
+  prefix[i]=text[i];prefix[i+1]=0;
+  lcd.setTextSize(size);lcd.setTextColor(0x05ff);lcd.setCursor(x,y);lcd.print(prefix);delay(pause);
+ }
 }
 template<class LCD> static void bootBegin(LCD &lcd){
- booting=true;progress=0;
+ booting=true;progress=0;bootStarted=millis();
  region(lcd,WolfDeckAssets::bootPixels,WolfDeckAssets::bootPalette,0,0,320,240);
- lcd.fillRoundRect(42,10,236,52,8,0x0008);
- // Bounded logo fade-in; there is no additional full-screen allocation.
- for(unsigned i=1;i<=6;i++){bootLogo(lcd,uint16_t(((i*10)<<5)|(i*5)));delay(20);}
- lcd.setTextSize(1);lcd.setTextColor(0xb6bc);lcd.setCursor(70,68);lcd.print("CYBERDECK V6.2 FULL ACCESS");
+ lcd.fillRoundRect(68,3,184,31,5,0x0008);
+ typeLine(lcd,"WOLF DECK",79,7,3,65);
+ lcd.fillRoundRect(126,36,68,22,4,0x0008);
+ typeLine(lcd,"V6.2",136,39,2,90);
+ lcd.fillRoundRect(116,61,88,13,3,0x0008);
+ lcd.setTextSize(1);lcd.setTextColor(0xb6bc);lcd.setCursor(127,64);lcd.print("FULL ACCESS");
  lcd.fillRoundRect(12,208,296,31,5,0x0008);
  lcd.drawRoundRect(16,211,288,10,3,0x05ff);
 }
@@ -52,8 +60,10 @@ template<class LCD> static void bootStep(LCD &lcd,unsigned target,const char *st
  lcd.setCursor(18,227);lcd.print(stage);
 }
 template<class LCD> static void bootReady(LCD &lcd){
+ unsigned long elapsed=millis()-bootStarted;
+ if(elapsed<BootDurationMs-ReadyHoldMs)delay(BootDurationMs-ReadyHoldMs-elapsed);
  bootStep(lcd,100,"READY");
  lcd.setTextColor(0x07e0);lcd.setCursor(18,227);lcd.print("READY");
- delay(350);booting=false;
+ delay(ReadyHoldMs);booting=false;
 }
 }

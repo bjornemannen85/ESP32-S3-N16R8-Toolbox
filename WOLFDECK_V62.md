@@ -29,12 +29,12 @@ SD card or extra upload is required.
   show the same artwork at quarter brightness under their icons and labels.
   Existing coordinates, LCD initialization, orientation and touch conversion
   are unchanged.
-- Boot: full-brightness fitted composition, six-frame WOLF DECK wordmark fade,
+- Boot: full-brightness fitted composition, typed WOLF DECK wordmark and V6.2 version,
   monotonic progress at actual display/touch/web/WiFi/storage/route milestones,
   then green READY. Missing touch/storage is reported in its stage text.
   READY means the UI has finished initialization, not that STA internet or
-  every external module is available. Animation adds 670 ms in total;
-  driver/network initialization takes its normal additional time.
+  every external module is available. Startup remains visible for at least
+  five seconds, including one second of READY; slower initialization extends it.
 
 Total picture data: 323,371 flash bytes; persistent graphics buffer: 640 bytes.
 The application partition remains 6 MiB, within the unchanged 16 MiB layout.
@@ -48,10 +48,29 @@ including AP changes requested through web or the program catalog.
 Unimplemented NFC/CC1101/IR drivers and the existing USB HID gate remain
 accurately identified rather than reported as working.
 
+## Navigation, credentials and keyboard
+
+The touch home has Network, Bluetooth, Hardware, Files, System, Settings,
+Radio and All Tools. The shared web catalog uses the same seven categories
+plus All. Category tools are alphabetically sorted; native scanners, system
+monitor, touch test and settings remain accessible alongside API programs.
+
+The hotspot default is `wolfdeck`. A one-time migration applies this value
+on first V6.2 startup, including existing installations. Subsequent custom
+hotspot passwords are retained; upstream WiFi profiles and admin tokens are
+not changed by this migration. Merged flashing can separately reset NVS.
+
+The touch keyboard has its own 10 ms polling path and 35 ms bounce filter,
+independent of the 220 ms menu debounce. It waits for release of the opening
+touch, accepts repeated letters, highlights pressed letters and redraws only
+the input preview while typing. Passwords use actual asterisk masking.
+Mode, delete, space, DONE and multiline script content are supported.
+
 ## Verification and limits
 
-The V6.2-only Actions workflow includes 10 Python regressions, native shared
-handler tests, native scanline/animation tests and mocked web UI tests, followed
+The V6.2-only Actions workflow includes 11 Python regressions, native shared
+handler, keyboard, category/default-password and scanline/animation tests,
+and mocked web UI tests, followed
 by the ESP-IDF 5.3.2 NAT build and merged-image packaging. Tests check that
 NAT code, LCD/touch wiring, coordinate conversion and partition table are
 preserved. Native graphics tests compare every rendered palette pixel, test

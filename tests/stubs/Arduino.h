@@ -6,3 +6,5 @@
 #define pgm_read_word(p) (*(const uint16_t *)(p))
 inline unsigned long testDelay=0;
 inline void delay(unsigned long ms){testDelay+=ms;}
+
+inline unsigned long millis(){return testDelay;}

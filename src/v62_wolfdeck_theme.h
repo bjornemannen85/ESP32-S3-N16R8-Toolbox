@@ -8,7 +8,7 @@ h2,h3,label,p{color:#edf8ff}a{color:#8fe7ff!important}
 section,.card,.panel,.tile,nav{background:rgba(3,14,30,.92)!important;border:1px solid #246581!important;border-radius:12px;padding:14px;box-shadow:0 8px 28px #0006}
 input,button,textarea,select{background:#0b2138!important;color:#fff!important;border:1px solid #448ca9!important;max-width:100%}
 input::placeholder,textarea::placeholder{color:#b5cbdc;opacity:1}
-button{font-weight:650;min-height:44px}button:hover{background:#15445d!important}
+button{font-weight:650;min-height:44px}button[aria-pressed="true"]{background:#155069!important;border-color:#8eeaff!important}button:hover{background:#15445d!important}
 :focus-visible{outline:3px solid #69deff;outline-offset:3px}
 nav{display:flex;gap:8px;flex-wrap:wrap}nav a{padding:8px;text-decoration:none;border:1px solid #2d6683;border-radius:6px}
 pre{background:#03111f;color:#e5f5ff;padding:12px;border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}

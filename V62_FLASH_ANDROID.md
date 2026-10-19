@@ -21,13 +21,19 @@ WOLF DECK artwork, the web theme and the boot animation are embedded in
 this application image; no separate graphics upload or filesystem flash is needed.
 
 After boot:
-- Check the WOLF DECK logo fade, progress and READY during startup.
+- Check the typed WOLF DECK logo and V6.2 version, progress and READY.
+  Startup is visible for at least five seconds, including one second READY.
 - Check wallpaper, contrast and keyboard response on screen and web.
 - Settings -> WiFi Setup: leave open for at least 30 seconds; test all four
   input fields, symbol keyboard, DONE and BACK repeatedly.
-- Tools -> All Programs: every installed API action has editable fields,
+- Home -> All Tools: every installed API action has editable fields,
   an explicit RUN button and a paged result. Touch is locally authorized.
-- UART, I2C, GPIO/ADC and SD home tiles open their installed controls.
+- Use Network, Bluetooth, Hardware, Files, System, Settings and Radio
+  categories on touch and web; use Settings -> WiFi Setup for credentials.
+- Test quick taps, repeated letters, uppercase, symbols, delete, space and
+  DONE in all WiFi fields and program forms; check visible input updates.
+- Connect to the existing Cyberdeck hotspot SSID with password `wolfdeck`.
+  First V6.2 boot applies this default once; later custom passwords persist.
 - Open the AP address (normally http://192.168.4.1/) for Full Access.
   Enter the admin token from Settings. Original web pages remain linked.
 - WiFi NAT: choose POST /wifi/nat, enabled=1. Verify from an Android client

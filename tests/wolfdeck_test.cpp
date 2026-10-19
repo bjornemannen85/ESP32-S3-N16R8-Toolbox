@@ -31,7 +31,8 @@ int main(){
  WolfDeck::bootStep(lcd,60,"WIFI CONFIG LOADED");assert(WolfDeck::progress==60);
  WolfDeck::bootStep(lcd,40,"NO REGRESSION");assert(WolfDeck::progress==60);
  WolfDeck::bootReady(lcd);assert(WolfDeck::progress==100&&!WolfDeck::booting);
- assert(lcd.labels.back()=="READY");assert(testDelay==670);assert(lcd.starts==lcd.ends);
+ assert(lcd.labels.back()=="READY");
+ bool version=false;for(const auto &s:lcd.labels)if(s=="V6.2")version=true;assert(version);assert(testDelay>=5000&&testDelay<=5200);assert(lcd.starts==lcd.ends);
  auto count=lcd.labels.size();WolfDeck::bootStep(lcd,50,"LATE");assert(lcd.labels.size()==count);
  std::cout<<"PASS: flash palettes, scanline bounds, 640-byte buffer, background/panels, monotonic boot stages, logo frames, READY, bounded timing\n";
 }

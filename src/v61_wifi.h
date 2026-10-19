@@ -1,6 +1,7 @@
 #pragma once
 #include <WiFi.h>
 #include <Preferences.h>
+#include "v62_defaults.h"
 #include "v62_server.h"
 #include <DNSServer.h>
 #include <HTTPClient.h>
@@ -60,9 +61,10 @@ static bool validSSID(const String &s){return s.length()>0&&s.length()<=32;}
 static bool validPass(const String &s){return s.length()>=8&&s.length()<=63;}
 static void load(){
  prefs.begin("v61wifi",false);
+ V62Defaults::migrateHotspot(prefs);
  apSSID=prefs.getString("ap_ssid",""); apPassword=prefs.getString("ap_pass","");
  if(!validSSID(apSSID)){char suf[7];snprintf(suf,sizeof(suf),"%06lX",(unsigned long)(ESP.getEfuseMac()&0xffffff));apSSID="CYBERDECK-"+String(suf);}
- if(!validPass(apPassword)){apPassword=randomPassword();prefs.putString("ap_pass",apPassword);}
+ if(!validPass(apPassword)){apPassword=V62Defaults::HotspotPassword;prefs.putString("ap_pass",apPassword);}
  prefs.putString("ap_ssid",apSSID);
  adminToken=prefs.getString("admin","");if(adminToken.length()<16){adminToken=randomPassword();prefs.putString("admin",adminToken);}
  known.clear();int count=constrain(prefs.getInt("count",0),0,MAX_NETWORKS);
