@@ -20,7 +20,7 @@ jobs:
           esp_idf_version: v5.3.2
           target: esp32s3
           path: idf_arduino_nat_probe
-          command: bash ci/diagnose.sh
+          command: bash ci/diagnose.sh && bash ci/package.sh
 
       - name: Upload ESP32-S3 NAT merged firmware
         if: success()
