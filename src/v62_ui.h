@@ -11,6 +11,11 @@ static std::vector<size_t> v62Visible;
 static size_t v62Count(){return v62Shortcuts.size()+v62Visible.size();}
 static std::vector<V62Server::Field> v62Arguments;
 static size_t v62Offset=0,v62Selected=0,v62ResultOffset=0;
+struct V62Navigation {bool valid=false;int category=V62Menu::All;String filter;size_t offset=0;std::vector<V62Shortcut> shortcuts;};
+static V62Navigation v62Navigation[12];
+void v62SaveNavigation(int index){if(index<0||index>=12)return;auto &n=v62Navigation[index];n.valid=page==PROGRAMS;if(n.valid){n.category=v62Category;n.filter=v62Filter;n.offset=v62Offset;n.shortcuts=v62Shortcuts;}}
+void v62RestoreNavigation(int index){if(index<0||index>=12||!v62Navigation[index].valid)return;const auto &n=v62Navigation[index];v62Category=n.category;v62Filter=n.filter;v62Offset=n.offset;v62Shortcuts=n.shortcuts;}
+
 static bool v62WasReceiver=false;
 static size_t v62ResultLineCount=0;
 static void v62IndexResult(){v62ResultLineCount=V62Text::lines(v6Server.result.c_str(),v6Server.result.length());}
@@ -53,11 +58,12 @@ static void v62Rebuild(){
  });
 }
 void v62Open(const String &filter){
+ if(historyDepth<12){v62SaveNavigation(historyDepth);history[historyDepth++]=page;}
  v62Filter=filter;v62Category=V62Menu::All;v62Shortcuts.clear();v62Offset=0;v62Rebuild();
- if(historyDepth<12)history[historyDepth++]=page;
  page=PROGRAMS;draw();
 }
 void v62OpenCategory(int category){
+ if(historyDepth<12){v62SaveNavigation(historyDepth);history[historyDepth++]=page;}
  v62Category=category;v62Filter="";v62Offset=0;v62Shortcuts.clear();
  if(category==V62Menu::Network)v62Shortcuts.push_back({"WiFi scanner",WIFI});
  if(category==V62Menu::Bluetooth)v62Shortcuts.push_back({"BLE scanner",BLE});
@@ -76,7 +82,6 @@ void v62OpenCategory(int category){
   v62Shortcuts.push_back({"IR status",IR});v62Shortcuts.push_back({"Module inventory",MODULES});
  }
  v62Rebuild();
- if(historyDepth<12)history[historyDepth++]=page;
  page=PROGRAMS;draw();
 }
 static void v62Choose(size_t index){

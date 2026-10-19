@@ -26,7 +26,10 @@ inline Program parse(const std::string &body,bool uart){
   else if(uart&&op=="TXHEX"){std::vector<uint8_t> bytes;ok=V62ModuleCore::hex(arg,bytes,128);}
   else if(uart&&op=="TX"){ok=arg.size()<=256;}
   else if(uart&&op=="WAIT_RX"){ok=V62ModuleCore::integer(arg,n,1,60000);}
-  else if(!uart&&(op=="STRING"||op=="STRINGLN"||op=="ALTSTRING")){ok=arg.size()<=1024;}
+  else if(!uart&&(op=="STRING"||op=="STRINGLN"||op=="ALTSTRING")){
+   ok=arg.size()<=1024;
+   for(unsigned char c:arg)if(c<32||c>126){p.error="BadUSB text requires printable US ASCII";p.errorLine=number;return p;}
+  }
   else if(!uart&&op=="ALTCHAR"){ok=V62ModuleCore::integer(arg,n,1,255);}
   else if(!uart&&op=="ID"){ok=!arg.empty();}
   else if(!uart&&(op=="MOUSEMOVE"||op=="MOUSESCROLL")){std::istringstream nums(arg);std::string a,b,extra;nums>>a;if(op=="MOUSEMOVE")nums>>b;nums>>extra;long v;ok=extra.empty()&&V62ModuleCore::integer(a,v,-127,127)&&(op=="MOUSESCROLL"||V62ModuleCore::integer(b,v,-127,127));}

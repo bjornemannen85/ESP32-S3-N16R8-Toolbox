@@ -39,8 +39,10 @@ constexpr uint16_t BLUE=0x047F,PURPLE=0xA81F,GREEN=0x07E0,RED=0xF945,YELLOW=0xFF
 enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, PAGE_GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES, WIFI_SETUP, WIFI_KEYBOARD, PROGRAMS, PROGRAM_ACTION, PROGRAM_RESULT, NETWORK_TOOLS, BLUETOOTH_TOOLS, FILE_TOOLS, SYSTEM_TOOLS, SETTINGS_TOOLS, BADUSB_FILES, UART_FILES, SCRIPT_INFO, PAGE_COUNT };
 Page page=HOME, parent=HOME;
 void draw();
+void v62SaveNavigation(int index);
+void v62RestoreNavigation(int index);
 Page history[12]; int historyDepth=0;
-void goBack(){page=historyDepth>0?history[--historyDepth]:HOME;draw();}
+void goBack(){int index=historyDepth>0?--historyDepth:-1;page=index>=0?history[index]:HOME;if(page==PROGRAMS)v62RestoreNavigation(index);draw();}
 bool lastPressed=false,touchOK=false,bleReady=false;
 bool sdMounted=false; String sdState="NOT TESTED";
 uint32_t lastTouch=0,lastSystemDraw=0;
@@ -315,7 +317,7 @@ void scanBle(){v6Log("BLE scan started");
 // Catalog uses the same handlers as web, including authentication and validation.
 #include "v62_ui.h"
 #include "v62_script_touch.h"
-void libraryOpen(Page target){libraryFolderUart=target==UART_FILES;libraryOffset=0;if(historyDepth<12)history[historyDepth++]=page;page=target;draw();}
+void libraryOpen(Page target){libraryFolderUart=target==UART_FILES;libraryOffset=0;if(historyDepth<12){v62SaveNavigation(historyDepth);history[historyDepth++]=page;}page=target;draw();}
 void enter(Page p,Page from){
  if(p==BADUSB_FILES||p==UART_FILES){libraryOpen(p);return;}
  if(p==NFC||p==SUBGHZ||p==IR||p==MODULES){v62ModuleContext=p==NFC?"nfc":p==SUBGHZ?"subghz":p==IR?"ir":"nfc";v62Open("/apps/modules/");return;}
@@ -337,7 +339,7 @@ void enter(Page p,Page from){
  else if(p==SPI_DIAG)filter="/hardware/plan";
  if(filter.length()){v62Open(filter);return;}
  if(p==PROGRAMS){v62OpenCategory(V62Menu::All);return;}
- if(historyDepth<12)history[historyDepth++]=page;
+ if(historyDepth<12){v62SaveNavigation(historyDepth);history[historyDepth++]=page;}
  parent=from;page=p;draw();}
 void setup(){
  Serial.begin(115200);delay(250);

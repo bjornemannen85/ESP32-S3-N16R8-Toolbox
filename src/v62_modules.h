@@ -41,7 +41,7 @@ static String probe(const String &id){
   return nfcReady?String("PN532 detected, firmware ")+String((version>>16)&255)+"."+String((version>>8)&255):"PN532 not detected; check I2C mode and wiring";
  }
  if(id=="subghz"){
-  spiReady=false;radioSPI.begin(c->pins[0],c->pins[1],c->pins[2],c->pins[3]);pinMode(c->pins[3],OUTPUT);digitalWrite(c->pins[3],HIGH);strobe(0x30);delay(5);
+  if(radioReady)strobe(0x36);radioReady=false;spiReady=false;radioSPI.end();radioSPI.begin(c->pins[0],c->pins[1],c->pins[2],c->pins[3]);pinMode(c->pins[3],OUTPUT);digitalWrite(c->pins[3],HIGH);strobe(0x30);delay(5);
   uint8_t version=radioReg(0x31,0,true);radioReady=version!=0&&version!=0xff;
   if(!radioReady)return "CC1101 not detected";
   // Packet-mode 2-FSK baseline, 38.4 kbps, CRC, whitening and variable packet size.
@@ -53,7 +53,7 @@ static String probe(const String &id){
  if(id=="ir"){pinMode(c->pins[0],INPUT);pinMode(c->pins[1],OUTPUT);digitalWrite(c->pins[1],LOW);return "IR pins prepared: demodulating receiver RX, transistor-driven LED TX";}
  if(id=="gpio"){pinMode(c->pins[0],INPUT);return "GPIO input ready; Transmit 0/1 enables explicit output";}
  if(id=="i2c"){nfcReady=false;externalWire.end();i2cReady=externalWire.begin(c->pins[0],c->pins[1],100000);return i2cReady?"External I2C bus ready; Read scans addresses":"External I2C setup failed";}
- if(id=="spi"){radioReady=false;radioSPI.begin(c->pins[0],c->pins[1],c->pins[2],c->pins[3]);pinMode(c->pins[3],OUTPUT);digitalWrite(c->pins[3],HIGH);spiReady=true;return "SPI mode 0, 1 MHz; Transmit HEX returns received bytes";}
+ if(id=="spi"){if(radioReady)strobe(0x36);radioReady=false;radioSPI.end();radioSPI.begin(c->pins[0],c->pins[1],c->pins[2],c->pins[3]);pinMode(c->pins[3],OUTPUT);digitalWrite(c->pins[3],HIGH);spiReady=true;return "SPI mode 0, 1 MHz; Transmit HEX returns received bytes";}
  if(id=="ibutton"){pinMode(c->pins[0],INPUT_PULLUP);return "1-Wire configured; external 4.7k pull-up required";}
  return "Unsupported module";
 }
@@ -116,7 +116,7 @@ static String transmit(const String &id,const String &data){
  }
  return "Transmit not implemented for this module";
 }
-static void stop(){if(radioReady)strobe(0x36);radioReady=false;nfcReady=false;spiReady=false;i2cReady=false;if(lfReady)lfSerial.end();lfReady=false;for(auto &c:configs)for(int p:c.pins)pinMode(p,INPUT);last="All module pins released; configurations retained";}
+static void stop(){if(radioReady)strobe(0x36);radioSPI.end();externalWire.end();radioReady=false;nfcReady=false;spiReady=false;i2cReady=false;if(lfReady)lfSerial.end();lfReady=false;for(auto &c:configs)for(int p:c.pins)pinMode(p,INPUT);last="All module pins released; configurations retained";}
 static String status(){String out="{\"message\":"+q(last)+",\"frequency_hz\":"+String(radioHz)+",\"modules\":[";bool first=true;for(auto &c:configs){if(!first)out+=",";first=false;out+="{\"id\":"+q(c.id)+",\"configured\":"+(c.pins.size()==c.count?"true":"false")+",\"pins\":[";for(size_t i=0;i<c.pins.size();i++){if(i)out+=",";out+=c.pins[i];}out+="]}";}return out+"]}";}
 static void routes(V62Server &s){
  s.on("/apps/modules/status",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",status());});
