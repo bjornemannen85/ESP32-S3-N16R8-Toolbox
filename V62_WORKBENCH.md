@@ -52,7 +52,9 @@ web and UART capture continue. No scripts run on boot or on folder selection.
 
 ## Native USB
 
-The ESP-IDF NAT build now compiles TinyUSB keyboard/mouse support. It starts
+The ESP-IDF NAT build now compiles TinyUSB keyboard/mouse support. CDC support
+is compiled too for Arduino 3.1.3 USB header compatibility; UART remains the
+console and native USB is not started automatically. It starts
 only on explicit ARM/Start HID. Connect ESP32-S3 native USB D- GPIO19 / D+
 GPIO20 to the test host; a CH34x/CP210x USB-UART bridge cannot become HID.
 Console remains UART; secondary USB Serial/JTAG console is disabled to avoid
