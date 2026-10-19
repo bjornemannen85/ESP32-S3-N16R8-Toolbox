@@ -1,0 +1,2 @@
+https://github.com/adafruit/Adafruit-PN532
+Commit: bf9f3f31961474fdbca23cb57d604c7f27269baf

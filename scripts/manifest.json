@@ -1,0 +1,147 @@
+[
+  {
+    "folder": "badusb",
+    "name": "demo_windows.txt",
+    "source": "https://github.com/flipperdevices/flipperzero-firmware/blob/3fb1d51727733d2007abc5ec636a89328857803e/applications/main/bad_usb/resources/badusb/demo_windows.txt",
+    "commit": "3fb1d51727733d2007abc5ec636a89328857803e",
+    "license": "GPL-3.0-only",
+    "runtime": "badusb",
+    "sha256": "62fc2fe8d9fb1326ef718305b27827814df0e89f0e652dab7759708bd6b48733",
+    "guide_file": "badusb/demo_windows.txt.md"
+  },
+  {
+    "folder": "badusb",
+    "name": "demo_macos.txt",
+    "source": "https://github.com/flipperdevices/flipperzero-firmware/blob/3fb1d51727733d2007abc5ec636a89328857803e/applications/main/bad_usb/resources/badusb/demo_macos.txt",
+    "commit": "3fb1d51727733d2007abc5ec636a89328857803e",
+    "license": "GPL-3.0-only",
+    "runtime": "badusb",
+    "sha256": "b73d95aa7fd185de2f70fbd212fee6c637a23cc7fcef5e65281af666d421f93e",
+    "guide_file": "badusb/demo_macos.txt.md"
+  },
+  {
+    "folder": "badusb",
+    "name": "demo_gnome.txt",
+    "source": "https://github.com/flipperdevices/flipperzero-firmware/blob/3fb1d51727733d2007abc5ec636a89328857803e/applications/main/bad_usb/resources/badusb/demo_gnome.txt",
+    "commit": "3fb1d51727733d2007abc5ec636a89328857803e",
+    "license": "GPL-3.0-only",
+    "runtime": "badusb",
+    "sha256": "d2c6fccec7e3c53244db3efa99c00f8fc2ada2965ea00586ec215410ca86e2a6",
+    "guide_file": "badusb/demo_gnome.txt.md"
+  },
+  {
+    "folder": "badusb",
+    "name": "demo_chromeos.txt",
+    "source": "https://github.com/flipperdevices/flipperzero-firmware/blob/3fb1d51727733d2007abc5ec636a89328857803e/applications/main/bad_usb/resources/badusb/demo_chromeos.txt",
+    "commit": "3fb1d51727733d2007abc5ec636a89328857803e",
+    "license": "GPL-3.0-only",
+    "runtime": "badusb",
+    "sha256": "91c18560d306828b8c7c876cd10f298b24862b8473a15562d3628d3a0699362f",
+    "guide_file": "badusb/demo_chromeos.txt.md"
+  },
+  {
+    "folder": "badusb",
+    "name": "test_mouse.txt",
+    "source": "https://github.com/flipperdevices/flipperzero-firmware/blob/3fb1d51727733d2007abc5ec636a89328857803e/applications/main/bad_usb/resources/badusb/test_mouse.txt",
+    "commit": "3fb1d51727733d2007abc5ec636a89328857803e",
+    "license": "GPL-3.0-only",
+    "runtime": "badusb",
+    "sha256": "dded095b85e93b4ed9756d9fc31b97dfbd9eb975d7577019d9352d2129fa32ad",
+    "guide_file": "badusb/test_mouse.txt.md"
+  },
+  {
+    "folder": "uart",
+    "name": "ASCIITable.ino",
+    "source": "https://github.com/arduino/arduino-examples/blob/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication/ASCIITable/ASCIITable.ino",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "Public domain (stated in source)",
+    "runtime": "reference-arduino",
+    "sha256": "e7b7735158b5520df7a4c4b68aebaa46a008c1f7ffa513a1fcad1e28bfde5cdf",
+    "guide_file": "uart/ASCIITable.ino.md"
+  },
+  {
+    "folder": "uart",
+    "name": "PhysicalPixel.ino",
+    "source": "https://github.com/arduino/arduino-examples/blob/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication/PhysicalPixel/PhysicalPixel.ino",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "Public domain (stated in source)",
+    "runtime": "reference-arduino",
+    "sha256": "45fe879a57d8a282f15196376696d65b3bddb5e424b3916ccbcdb152e9e4a6b3",
+    "guide_file": "uart/PhysicalPixel.ino.md"
+  },
+  {
+    "folder": "uart",
+    "name": "SerialCallResponse.ino",
+    "source": "https://github.com/arduino/arduino-examples/blob/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication/SerialCallResponse/SerialCallResponse.ino",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "Public domain (stated in source)",
+    "runtime": "reference-arduino",
+    "sha256": "1b82d97f8600f4701e76f508fb8ef8087295a1e8d10ff269f87c8b8fb585c0f4",
+    "guide_file": "uart/SerialCallResponse.ino.md"
+  },
+  {
+    "folder": "uart",
+    "name": "SerialEvent.ino",
+    "source": "https://github.com/arduino/arduino-examples/blob/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication/SerialEvent/SerialEvent.ino",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "Public domain (stated in source)",
+    "runtime": "reference-arduino",
+    "sha256": "318ebc7a1dc3ec76ac5de603af065ba3262589ed199b02d6e640e97d234e54a8",
+    "guide_file": "uart/SerialEvent.ino.md"
+  },
+  {
+    "folder": "uart",
+    "name": "01_loopback.uart",
+    "source": "https://github.com/arduino/arduino-examples/tree/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "CC0-1.0 (original WOLF DECK macro); Arduino reference public domain",
+    "runtime": "uart",
+    "guide": "Koble TX til RX p\u00e5 Cyberdecken for loopback. Start UART med to ledige GPIO-pinner og 9600 baud. Kj\u00f8r makroen; capture_hex skal vise teksten som ble sendt. Koble fra l\u00f8kken n\u00e5r testen er ferdig.",
+    "sha256": "0ada57bffe757f55005c967eb1ebe86ba3ec193885180199fa335679803369e2",
+    "guide_file": "uart/01_loopback.uart.md"
+  },
+  {
+    "folder": "uart",
+    "name": "02_physical_pixel.uart",
+    "source": "https://github.com/arduino/arduino-examples/tree/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "CC0-1.0 (original WOLF DECK macro); Arduino reference public domain",
+    "runtime": "uart",
+    "guide": "Flash PhysicalPixel.ino p\u00e5 et separat Arduino-kort. Forbind jord, Cyberdeck TX til mottakerens RX via riktige spenningsniv\u00e5er. Start UART 9600 baud. H tenner testkortets LED og L slukker den. Unng\u00e5 5 V p\u00e5 ESP32-innganger.",
+    "sha256": "ce48b4cd5fcf203647f6b4d3023d99ee1b846a9d9576bd18426efb3fe3c81176",
+    "guide_file": "uart/02_physical_pixel.uart.md"
+  },
+  {
+    "folder": "uart",
+    "name": "03_call_response.uart",
+    "source": "https://github.com/arduino/arduino-examples/tree/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "CC0-1.0 (original WOLF DECK macro); Arduino reference public domain",
+    "runtime": "uart",
+    "guide": "Flash SerialCallResponse.ino p\u00e5 testkortet. Start UART med 9600 baud. Makroen sender to foresp\u00f8rsler; mottakeren svarer med tre m\u00e5lebytes per foresp\u00f8rsel. Capture vises som HEX. Testkortets analoge innganger m\u00e5 kobles etter Arduino-eksemplet.",
+    "sha256": "67bbc18641cf8b3cbdc52175410858cc82bbd1557b0582bf5af0061c96973239",
+    "guide_file": "uart/03_call_response.uart.md"
+  },
+  {
+    "folder": "uart",
+    "name": "04_serial_event.uart",
+    "source": "https://github.com/arduino/arduino-examples/tree/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "CC0-1.0 (original WOLF DECK macro); Arduino reference public domain",
+    "runtime": "uart",
+    "guide": "Flash SerialEvent.ino p\u00e5 testkortet, start UART 9600 baud og kj\u00f8r. Mottakeren samler tegn frem til linjeskift og skriver linjen tilbake. Kontroller teksten i capture.",
+    "sha256": "3520b1aea74020c616ef8a99974955053dec2f70b2ea77d65079453c18c96fbb",
+    "guide_file": "uart/04_serial_event.uart.md"
+  },
+  {
+    "folder": "uart",
+    "name": "05_ascii_table_receive.uart",
+    "source": "https://github.com/arduino/arduino-examples/tree/50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a/examples/04.Communication",
+    "commit": "50b66a3ce1e4e5e69cd96d3af5ca41a3383b311a",
+    "license": "CC0-1.0 (original WOLF DECK macro); Arduino reference public domain",
+    "runtime": "uart",
+    "guide": "Flash ASCIITable.ino p\u00e5 testkortet. Start UART 9600 baud, kj\u00f8r makroen og trykk reset p\u00e5 testkortet. Appen venter fem sekunder mens UART-mottak fortsetter. \u00c5pne capture_hex for ASCII-tabellen. Krever ingen sending fra Cyberdecken.",
+    "sha256": "9f72c34072aec3c3ebc76bed462f0ab6281356a55b5db2644378277982d39e00",
+    "guide_file": "uart/05_ascii_table_receive.uart.md"
+  }
+]

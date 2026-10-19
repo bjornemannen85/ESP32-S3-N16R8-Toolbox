@@ -3,7 +3,8 @@ from pathlib import Path
 import re, sys
 root=Path(__file__).resolve().parents[1]
 entries={}
-for p in sorted((root/'src').glob('v61*.h')):
+sources=list((root/'src').glob('v61*.h'))+[root/'src'/n for n in ['v62_modules.h','v62_script_apps.h','v62_app_content.h']]
+for p in sorted(sources):
     text=p.read_text()
     routes=list(re.finditer(r's.on\("([^"]+)",\s*(HTTP_GET|HTTP_POST)',text))
     for i,m in enumerate(routes):

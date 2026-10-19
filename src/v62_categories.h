@@ -8,6 +8,8 @@ static const char *const keys[]={"network","bluetooth","hardware","files","syste
 inline bool has(const char *p,const char *part){return std::strstr(p,part)!=nullptr;}
 inline int category(const char *p){
  if(has(p,"/wifi/ap")||has(p,"/wifi/networks")||has(p,"/wifi/delete"))return Settings;
+ if(has(p,"/apps/modules"))return Modules;
+ if(has(p,"/apps/formats")||has(p,"/apps/storage")||has(p,"/apps/scripts"))return Files;
  if(has(p,"ble")||has(p,"bluetooth"))return Bluetooth;
  if(has(p,"scripts")||has(p,"/sd/")||has(p,"storage"))return Files;
  if(has(p,"uart")||has(p,"adc")||has(p,"i2c")||has(p,"pins")||has(p,"hardware/plan")||has(p,"usb-hid"))return Hardware;

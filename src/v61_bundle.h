@@ -1,4 +1,5 @@
 #pragma once
+String v62LiveFeatures();
 #include <Arduino.h>
 #include <WiFi.h>
 #include "v62_server.h"
@@ -28,7 +29,7 @@ static void routes(V62Server &s){
  // 24: pin policy and unverified external peripherals.
  s.on("/toolbox/pins",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json","{\"display\":\"ILI9341\",\"touch\":\"FT6336G\",\"touch_sda\":16,\"touch_scl\":15,\"reserved_usb\":[19,20],\"external_module_pins_verified\":false,\"gpio_writes_enabled\":false}");});
  // 25: explicit truthful feature gates.
- s.on("/toolbox/features",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json","{\"scripts_store\":true,\"scripts_execute\":false,\"usb_hid\":false,\"nat\":false,\"ble_file_transfer\":false,\"sd_mount\":false,\"rf_nfc_ir\":false,\"hardware_tested\":false}");});
+ s.on("/toolbox/features",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",v62LiveFeatures());});
  s.on("/toolbox/clock",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",String("{\"uptime_seconds\":")+String(millis()/1000)+",\"wall_clock_synchronized\":false}");});
 }
 }

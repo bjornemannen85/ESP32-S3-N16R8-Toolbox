@@ -1,0 +1,3 @@
+REM WOLF DECK native UART macro; adapted workflow from Arduino public-domain communication examples
+TX WOLF DECK UART loopback\r\n
+WAIT_RX 1000

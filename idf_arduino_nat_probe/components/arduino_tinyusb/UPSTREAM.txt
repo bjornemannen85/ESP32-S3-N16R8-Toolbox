@@ -1,0 +1,6 @@
+TinyUSB: https://github.com/hathach/tinyusb
+Tag: 0.18.0
+Commit: 86ad6e56c1700e85f1c5678607a762cfe3aa2f47
+Espressif wrapper: https://github.com/espressif/esp32-arduino-lib-builder
+Commit: 530964690cabaaf7f9d196ee516584e49c3e913a
+Local change: component dependency arduino renamed to arduino-esp32.

@@ -19,6 +19,9 @@ cp ../V62_FLASH_ANDROID.md build/v62-dist/README-ANDROID.md
 cp ../WOLFDECK_V62.md build/v62-dist/WOLFDECK-NOTES.md
 cp ../assets/wolfdeck/manifest.json build/v62-dist/ASSETS.json
 cp ../assets/wolfdeck/icons/manifest.json build/v62-dist/APP-ICONS.json
+cp ../V62_WORKBENCH.md build/v62-dist/WORKBENCH-NOTES.md
+mkdir -p build/v62-dist/SCRIPTS
+cp -R ../scripts/. build/v62-dist/SCRIPTS/
 git rev-parse HEAD > build/v62-dist/SOURCE_COMMIT.txt
 (cd build/v62-dist && sha256sum esp32-s3-v6.2-full-access-nat-merged.bin > SHA256SUMS.txt)
 python -m esptool --chip esp32s3 image_info build/v61_arduino_nat_probe.bin

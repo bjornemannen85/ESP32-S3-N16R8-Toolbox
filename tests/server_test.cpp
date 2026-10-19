@@ -47,5 +47,7 @@ int main(){
  assert(s.networkBody.find("<!doctype html>")==0);
  assert(s.networkBody.find("/wolfdeck_theme.css")<s.networkBody.find("</head>"));
  s.send(200,"application/json","{\"ok\":true}");assert(s.networkBody=="{\"ok\":true}");
- std::cout<<"PASS: shared handlers, authentication, validation, context isolation, duplicate routes, bounds, streaming, reentrancy\n";
+ s.on("/flash",HTTP_GET,[&](){s.send_P(200,"text/plain","guide from flash",16);});
+ assert(s.invoke(4,{},""));assert(s.resultCode==200&&s.result=="guide from flash");
+ std::cout<<"PASS: shared handlers, authentication, validation, context isolation, duplicate routes, bounds, streaming, flash content capture, reentrancy\n";
 }

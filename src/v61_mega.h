@@ -1,4 +1,5 @@
 #pragma once
+String v62LiveFeatures();
 #include <Arduino.h>
 #include <LittleFS.h>
 #include "v62_server.h"
@@ -66,9 +67,7 @@ static void routes(V62Server &s) {
   String j="{\"uptime_ms\":"+String(millis())+",\"free_heap\":"+String(ESP.getFreeHeap())+",\"free_psram\":"+String(ESP.getFreePsram())+",\"wifi_rssi\":"+String(WiFi.status()==WL_CONNECTED?WiFi.RSSI():0)+",\"sta_connected\":"+String(WiFi.status()==WL_CONNECTED?"true":"false")+",\"ap_clients\":"+String(WiFi.softAPgetStationNum())+",\"littlefs_ready\":"+String(V61Scripts::ready?"true":"false")+",\"hid_execution\":false,\"sd_untested\":true}";
   s.send(200,"application/json",j);
  });
- s.on("/tools/safety", HTTP_GET, [&s](){
-  if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
-  s.send(200,"application/json","{\"script_execution\":false,\"usb_hid\":false,\"sd_mount\":false,\"nat_supported\":false,\"rf_tx\":false,\"external_modules\":\"unverified\"}");
+ s.on("/tools/safety", HTTP_GET, [&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",v62LiveFeatures());
  });
 }
 }

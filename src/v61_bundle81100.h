@@ -15,10 +15,12 @@ static uint32_t baud=4800;
 static String capture;
 static const size_t CAPTURE_MAX=2048;
 static unsigned long received=0, transmitted=0;
+static bool (*modulePinFree)(int)=nullptr;
 static bool pinAllowed(int p){
+  if(modulePinFree&&!modulePinFree(p))return false;
   // Do not use flash/PSRAM, boot strapping, onboard LCD, touch, USB, or SD candidate pins.
   if(p<1||p>48||(p>=26&&p<=37))return false;
-  const int reserved[]={0,3,10,11,12,13,15,16,18,19,20,38,39,40,41,45,46,47,48};
+  const int reserved[]={0,3,10,11,12,13,15,16,18,19,20,38,39,40,41,43,44,45,46,47,48};
   for(int x:reserved)if(p==x)return false;
   return true;
 }

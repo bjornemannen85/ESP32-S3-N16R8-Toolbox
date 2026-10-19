@@ -51,6 +51,12 @@ public:
   resultCode=code;result=body.substring(0,RESULT_LIMIT);
   if(body.length()>RESULT_LIMIT)result+="\n[display truncated]";
  }
+ void send_P(int code,const char *type,const char *body,size_t length) {
+  if(!local){WebServer::send_P(code,type,body,length);return;}
+  resultCode=code;result="";size_t n=length<RESULT_LIMIT?length:RESULT_LIMIT;result.reserve(n);
+  for(size_t i=0;i<n;i++)result+=body[i];
+  if(length>RESULT_LIMIT)result+="\n[display truncated]";
+ }
  void sendHeader(const String &name,const String &value,bool first=false) {
   if(!local)WebServer::sendHeader(name,value,first);
  }

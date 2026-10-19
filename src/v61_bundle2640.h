@@ -1,4 +1,5 @@
 #pragma once
+String v62LiveFeatures();
 #include <Arduino.h>
 #include "v62_server.h"
 #include <WiFi.h>
@@ -11,8 +12,7 @@
 namespace V61Bundle2640 {
 static String jsonString(const String &s){return String("\"")+V61WiFi::escapeJson(s)+"\"";}
 static void routes(V62Server &s){
- s.on("/api/v61/features",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
-  s.send(200,"application/json","{\"bundle\":\"26-40\",\"wifi\":true,\"scripts\":true,\"ble_transfer\":false,\"usb_hid\":false,\"nat\":false,\"sd\":false,\"rf\":false,\"nfc\":false,\"ir\":false}");});
+ s.on("/api/v61/features",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);s.send(200,"application/json",v62LiveFeatures());});
  s.on("/api/v61/network",HTTP_GET,[&s](){if(!V61WiFi::authorized(s))return V61WiFi::forbidden(s);
   bool connected=WiFi.status()==WL_CONNECTED;
   String j="{\"connected\":"+String(connected?"true":"false")+",\"ssid\":"+jsonString(connected?WiFi.SSID():String(""))+

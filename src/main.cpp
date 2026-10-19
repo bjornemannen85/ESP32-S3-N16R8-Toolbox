@@ -25,6 +25,8 @@
 #include "v62_categories.h"
 #include "v62_keyboard.h"
 #include "v62_icons.h"
+#include "v62_scroll.h"
+#include "v62_app_content.h"
 
 // ES3C28P: known-good V4.7 display/touch wiring.
 constexpr int LCD_CS=10,LCD_DC=46,LCD_SCK=12,LCD_MOSI=11,LCD_MISO=13,LCD_BL=45;
@@ -34,7 +36,7 @@ Adafruit_ILI9341 lcd(&lcdSPI,LCD_DC,LCD_CS,-1);
 constexpr uint16_t BG=0x0008,PANEL=0x1084,ACCENT=0x05FF,WHITE=0xFFFF,MUTED=0x9CF3,ORANGE=0xFD20;
 constexpr uint16_t BLUE=0x047F,PURPLE=0xA81F,GREEN=0x07E0,RED=0xF945,YELLOW=0xFFE0;
 
-enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, PAGE_GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES, WIFI_SETUP, WIFI_KEYBOARD, PROGRAMS, PROGRAM_ACTION, PROGRAM_RESULT, NETWORK_TOOLS, BLUETOOTH_TOOLS, FILE_TOOLS, SYSTEM_TOOLS, SETTINGS_TOOLS, PAGE_COUNT };
+enum Page { HOME, RADIO, HARDWARE, TOOLS, WIFI, BLE, SYSTEM, TOUCH, NFC, SUBGHZ, IR, PAGE_GPIO, UART, I2C, SPI_DIAG, STORAGE, SETTINGS, LOGS, MODULES, WIFI_SETUP, WIFI_KEYBOARD, PROGRAMS, PROGRAM_ACTION, PROGRAM_RESULT, NETWORK_TOOLS, BLUETOOTH_TOOLS, FILE_TOOLS, SYSTEM_TOOLS, SETTINGS_TOOLS, BADUSB_FILES, UART_FILES, SCRIPT_INFO, PAGE_COUNT };
 Page page=HOME, parent=HOME;
 void draw();
 Page history[12]; int historyDepth=0;
@@ -45,7 +47,7 @@ uint32_t lastTouch=0,lastSystemDraw=0;
 String wifiLines[40],bleLines[40]; int wifiCount=-1,bleCount=-1;
 int wifiStored=0,bleStored=0,wifiOffset=0,bleOffset=0;
 int wifiRssi[40]={0},bleRssi[40]={0};
-const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER","WIFI SETUP","WIFI KEYBOARD","ALL PROGRAMS","PROGRAM","RESULT","NETWORK","BLUETOOTH","FILES / SCRIPTS","SYSTEM TOOLS","SETTINGS TOOLS"};
+const char *names[]={"HOME","RADIO TOOLS","HARDWARE","UTILITIES","WIFI SCANNER","BLE SCANNER","SYSTEM MONITOR","TOUCH TEST","PN532 NFC / EMV","CC1101 SUB-GHZ","IR ANALYZER","GPIO LAB","UART TERMINAL","I2C EXPLORER","SPI DIAGNOSTICS","MICROSD STORAGE","SETTINGS","EVENT LOG","MODULE MANAGER","WIFI SETUP","WIFI KEYBOARD","ALL PROGRAMS","PROGRAM","RESULT","NETWORK","BLUETOOTH","FILES / SCRIPTS","SYSTEM TOOLS","SETTINGS TOOLS","BADUSB SCRIPTS","UART SCRIPTS","SCRIPT GUIDE"};
 static_assert(sizeof(names)/sizeof(names[0])==PAGE_COUNT,"Every screen must have a title");
 void enter(Page p,Page from);
 void v62Draw();
@@ -53,6 +55,13 @@ void v62Touch(uint16_t x,uint16_t y);
 void v62Open(const String &filter);
 void v62OpenCategory(int category);
 String v62MenuTitle();
+bool v62ScrollTouch(bool down,uint16_t x,uint16_t y);
+static bool scrollHeld=false;
+static String v62ModuleContext="nfc";
+void libraryDraw();
+bool libraryScroll(bool down,uint16_t x,uint16_t y);
+void libraryTouch(uint16_t x,uint16_t y);
+void libraryOpen(Page target);
 const Page radioItems[]={NFC,SUBGHZ,IR,MODULES};
 const Page homeItems[]={NETWORK_TOOLS,BLUETOOTH_TOOLS,HARDWARE,FILE_TOOLS,SYSTEM_TOOLS,SETTINGS_TOOLS,RADIO,PROGRAMS};
 const char *homeTitles[]={"NETWORK","BLUETOOTH","HARDWARE","FILES","SYSTEM","SETTINGS","RADIO","ALL TOOLS"};
@@ -157,6 +166,7 @@ void draw(){
  case HARDWARE: menu(hwItems,6);break;
  case TOOLS: menu(toolItems,6);break;
  case PROGRAMS:case PROGRAM_ACTION:case PROGRAM_RESULT:v62Draw();break;
+ case BADUSB_FILES:case UART_FILES:case SCRIPT_INFO:libraryDraw();break;
 
  case SYSTEM:{
   int vals[]={int(ESP.getCpuFreqMHz()),
@@ -186,7 +196,7 @@ void draw(){
   for(int i=0;i<5;i++){
     int idx=offset+i;if(idx>=stored)break;
     int y=56+i*26;
-    lcd.drawRoundRect(8,y,304,24,4,BLUE);
+    lcd.drawRoundRect(8,y,290,24,4,BLUE);
     String name=isWifi?wifiLines[idx]:bleLines[idx];
     int rssi=isWifi?wifiRssi[idx]:bleRssi[idx];
     label(clipped(name,29),13,y+4,1,WHITE);
@@ -197,6 +207,7 @@ void draw(){
   backButton();
   button(119,198,56,35,"<");
   button(179,198,56,35,">");
+  V62Scroll::Bar{size_t(stored),5,size_t(offset)}.draw(lcd,PANEL,ACCENT);
   button(240,198,72,35,"SCAN");
   break;
  }
@@ -303,7 +314,11 @@ void scanBle(){v6Log("BLE scan started");
 }
 // Catalog uses the same handlers as web, including authentication and validation.
 #include "v62_ui.h"
+#include "v62_script_touch.h"
+void libraryOpen(Page target){libraryFolderUart=target==UART_FILES;libraryOffset=0;if(historyDepth<12)history[historyDepth++]=page;page=target;draw();}
 void enter(Page p,Page from){
+ if(p==BADUSB_FILES||p==UART_FILES){libraryOpen(p);return;}
+ if(p==NFC||p==SUBGHZ||p==IR||p==MODULES){v62ModuleContext=p==NFC?"nfc":p==SUBGHZ?"subghz":p==IR?"ir":"nfc";v62Open("/apps/modules/");return;}
  int category=-1;
  if(p==NETWORK_TOOLS)category=V62Menu::Network;
  else if(p==BLUETOOTH_TOOLS)category=V62Menu::Bluetooth;
@@ -339,29 +354,33 @@ void setup(){
  V61WiFi::start();v6SSID=V61WiFi::apSSID;v6Password=V61WiFi::apPassword;
  wifiEditApSSID=v6SSID;V61WiFi::routes(v6Server);
  WolfDeck::bootStep(lcd,60,"WIFI / NAT CONFIG LOADED");
- V61Scripts::begin();V61Scripts::routes(v6Server);
+ V61Scripts::begin();V61Scripts::routes(v6Server);V62ScriptApps::seed();V62Modules::load();
  WolfDeck::bootStep(lcd,75,V61Scripts::ready?"SCRIPT STORAGE READY":"SCRIPT STORAGE UNAVAILABLE");
  V61Bundle2640::routes(v6Server);V61Bundle4160::routes(v6Server);
  V61Bundle6180::routes(v6Server);V61Bundle81100::routes(v6Server);
  V61Bundle101120::routes(v6Server);V61BleTransfer::routes(v6Server);
  V61ReleaseGuard::routes(v6Server);V61USBHID::routes(v6Server);
  V61MicroSD::routes(v6Server);V61Mega::routes(v6Server);V61Bundle::routes(v6Server);
+ V62Modules::routes(v6Server);V62ScriptApps::routes(v6Server);V62Apps::routes(v6Server);
  v62Register();WolfDeck::bootStep(lcd,95,"ALL PROGRAMS REGISTERED");
  // Retain the existing manual-only SD mount policy.
  Serial.printf("WOLF DECK V6.2 touch=%s\n",touchOK?"YES":"NO");
  WolfDeck::bootReady(lcd);draw();
 }
 void loop(){
- v6Server.handleClient();V61WiFi::tick();V61Bundle81100::tick();V61BleTransfer::tick();
+ v6Server.handleClient();V61WiFi::tick();V61Bundle81100::tick();V61BleTransfer::tick();V62Scripts::tick();
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
  if(pressed&&page==TOUCH&&y<185)lcd.fillCircle(x,y,3,BLUE);
  if(page==WIFI_KEYBOARD){
   int event=wifiKeys.update(pressed,V62Keys::hit(x,y),millis());
   if(!pressed&&wifiActiveKey>=0)wifiKeyHighlight(-1);
   if(event>=0)wifiKeyboardKey(x,y);
+ }else if(libraryScroll(pressed,x,y)||v62ScrollTouch(pressed,x,y)){
+  // Dedicated drag path; never activate an app under the scrollbar.
  }else if(pressed&&!lastPressed&&millis()-lastTouch>220){
   lastTouch=millis();
-  if(page==PROGRAMS||page==PROGRAM_ACTION||page==PROGRAM_RESULT){v62Touch(x,y);}
+  if(page==BADUSB_FILES||page==UART_FILES||page==SCRIPT_INFO){libraryTouch(x,y);}
+  else if(page==PROGRAMS||page==PROGRAM_ACTION||page==PROGRAM_RESULT){v62Touch(x,y);}
   else if(page==HOME){
    int index=V62Menu::homeIndex(x,y);
    if(index>=0)enter(homeItems[index],HOME);
@@ -406,6 +425,7 @@ void loop(){
  }
  lastPressed=pressed;
  v62SyncBle();
+ if(page==SCRIPT_INFO&&millis()-lastSystemDraw>250){lastSystemDraw=millis();lcd.fillRect(0,190,300,8,PANEL);label(clipped(String(V62Scripts::running?"RUN ":"IDLE ")+String(V62Scripts::step)+"/"+String(V62Scripts::program.steps.size())+" "+V62Scripts::message,48),8,190,1,V62Scripts::running?GREEN:MUTED);}
  if(page==SYSTEM&&millis()-lastSystemDraw>2500){lastSystemDraw=millis();draw();}
  delay(page==WIFI_KEYBOARD?10:25);
 }

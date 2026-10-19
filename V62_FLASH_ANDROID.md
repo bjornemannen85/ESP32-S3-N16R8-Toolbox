@@ -46,11 +46,18 @@ After boot:
   script file operations and manual ADC/SD functions with your hardware.
 - Verify PSRAM reports 8 MB and that display/touch still work.
 
-NFC/PN532, CC1101, IR and GPIO output were not implemented in the base
-source. Native USB HID remains gated off. Full Access exposes existing
-programs; it does not implement these missing drivers or execute scripts.
+The Workbench revision includes configurable external drivers and native USB
+keyboard/mouse in the ESP-IDF build. Open WORKBENCH-NOTES.md for exact limits.
+UART/BadUSB macros are executable; Arduino/Python references are not interpreted.
+No modules or scripts start on boot. This is not full Flipper Zero parity.
 
 The adapter executes the original handlers on the same loop task as web.
 Web actions retain the existing admin-token authentication and validation.
 Touch previews retain up to 48 KiB; full responses can be downloaded on web.
 WiFi/BLE scans are synchronous as in V6.1 and can briefly pause the UI.
+
+Workbench revision: open Files -> BadUSB / UART scripts on touch, or `/apps`
+and `/apps/scripts` on web. Read HELP for each file. Test the right-side drag
+bar, ARM/RUN/STOP and quick keyboard taps. Module drivers are configured manually
+under Radio -> module config. Exact pin order and protocol limits are in
+WORKBENCH-NOTES.md; adding hardware later does not add unimplemented protocols.

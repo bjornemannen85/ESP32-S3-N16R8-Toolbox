@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 static const char WOLFDECK_THEME[] PROGMEM=R"CSS(
-:root{color-scheme:dark}html{min-height:100%;background:#030912}
+:root{color-scheme:dark;scrollbar-color:#60dfff #081a2b;scrollbar-width:auto}html{overflow-y:scroll;scrollbar-gutter:stable}*::-webkit-scrollbar{width:14px}*::-webkit-scrollbar-track{background:#081a2b}*::-webkit-scrollbar-thumb{background:#389db8;border:3px solid #081a2b;border-radius:9px}#out{max-height:65vh;overflow-y:auto;scrollbar-gutter:stable}html{min-height:100%;background:#030912}
 body{min-height:100vh;box-sizing:border-box;color:#edf8ff!important;font-family:system-ui,sans-serif!important;background-color:#030912!important;background-image:linear-gradient(100deg,rgba(2,7,16,.82),rgba(2,7,16,.62)),url('/wolfdeck_web_background.jpg')!important;background-position:center!important;background-size:cover!important;background-attachment:fixed!important;background-repeat:no-repeat!important}
 h1{color:#7ce5ff!important;letter-spacing:.08em;text-shadow:0 2px 10px #000}
 h2,h3,label,p{color:#edf8ff}a{color:#8fe7ff!important}

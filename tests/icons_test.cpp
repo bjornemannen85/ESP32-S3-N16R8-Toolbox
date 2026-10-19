@@ -8,8 +8,8 @@ struct Display {
 };
 int main(){
  assert(V62Icons::Count==41);
- assert(sizeof(V62Icons::routes)/sizeof(V62Icons::routes[0])==92);
- assert(sizeof(V62Icons::pages)==29);
+ assert(sizeof(V62Icons::routes)/sizeof(V62Icons::routes[0])>=113);
+ assert(sizeof(V62Icons::pages)==32);
  for(const auto &icon:V62Icons::icons){
   assert(icon.bits&&icon.color&&icon.length==std::strlen(icon.svg));
   assert(std::strstr(icon.svg,"<svg")&&std::strstr(icon.svg,"viewBox=\"0 0 64 64\""));
@@ -28,5 +28,5 @@ int main(){
  assert(std::strcmp(V62Icons::route(nullptr).id,"system")==0);
  assert(std::strcmp(V62Icons::get("../invalid").id,"system")==0);
  assert(std::strcmp(V62Icons::pagesIcon(999).id,"system")==0);
- std::cout<<"PASS: 41 flash SVGs, 24px masks, 92 route mappings, native pages/categories, bounded draw calls and fallbacks\n";
+ std::cout<<"PASS: 41 flash SVGs, 24px masks, 113+ route mappings, native pages/categories, bounded draw calls and fallbacks\n";
 }

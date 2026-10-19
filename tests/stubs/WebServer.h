@@ -24,6 +24,7 @@ public:
  String arg(const String &name){return networkArgs[name];}
  String header(const String &name){return networkHeaders[name];}
  void send(int code,const char*,const String &body){networkCode=code;networkBody=body;}
+ void send_P(int code,const char*,const char *body,size_t n){networkCode=code;networkBody=String(body,n);}
  void sendHeader(const String&,const String&,bool=false){}
  template<class F> size_t streamFile(F &file,const String&){return file.size();}
 };

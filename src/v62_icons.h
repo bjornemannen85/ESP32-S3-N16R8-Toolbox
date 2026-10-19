@@ -134,6 +134,28 @@ static const Route routes[]={
  {"/api/v61/v2/wifi/history",6},
  {"/api/v61/v2/wifi/history/clear",6},
  {"/api/v61/v2/wifi/snapshot",6},
+ {"/apps",20},
+ {"/apps/catalog",36},
+ {"/apps/formats/inspect",16},
+ {"/apps/guide",38},
+ {"/apps/modules/config",34},
+ {"/apps/modules/probe",34},
+ {"/apps/modules/read",34},
+ {"/apps/modules/status",34},
+ {"/apps/modules/stop",34},
+ {"/apps/modules/transmit",34},
+ {"/apps/scripts",17},
+ {"/apps/scripts/guide",17},
+ {"/apps/scripts/list",17},
+ {"/apps/scripts/read",17},
+ {"/apps/scripts/run",17},
+ {"/apps/scripts/save",17},
+ {"/apps/scripts/status",17},
+ {"/apps/scripts/stop",17},
+ {"/apps/scripts/validate",17},
+ {"/apps/status",21},
+ {"/apps/stop",37},
+ {"/apps/storage/initialize",16},
  {"/hardware/i2c",13},
  {"/hardware/system",20},
  {"/scripts",17},
@@ -186,7 +208,7 @@ static const Route routes[]={
  {"/wifi/tcp",5},
 };
 inline const Icon &route(const char *path){for(const auto &r:routes)if(path&&std::strcmp(path,r.path)==0)return icons[r.icon];return get("system");}
-static const uint8_t pages[]={35,30,9,35,1,7,20,26,31,32,33,12,10,13,14,19,27,25,34,28,28,35,35,35,0,7,16,20,27};
+static const uint8_t pages[]={35,30,9,35,1,7,20,26,31,32,33,12,10,13,14,19,27,25,34,28,28,35,35,35,0,7,16,20,27,15,10,38};
 inline const Icon &pagesIcon(int index){return index>=0&&size_t(index)<sizeof(pages)?icons[pages[index]]:get("system");}
 static const uint8_t categories[]={0,7,9,16,20,27,30};
 inline const Icon &categoriesIcon(int index){return index>=0&&size_t(index)<sizeof(categories)?icons[categories[index]]:get("all-tools");}

@@ -45,8 +45,10 @@ The existing Full Access touch/web catalog, WiFi Setup bounds/history fix,
 NAT code, WiFi profiles, BLE, UART, ADC, script manager and manual SD controls
 are retained. Settings now reads current AP credentials from the WiFi manager,
 including AP changes requested through web or the program catalog.
-Unimplemented NFC/CC1101/IR drivers and the existing USB HID gate remain
-accurately identified rather than reported as working.
+The Workbench revision adds configurable PN532 UID, CC1101 packet, IR NEC,
+Dallas ROM, RDM6300, GPIO, SPI and external I2C drivers, plus native USB HID
+and documented macro libraries. Exact protocol limits are in V62_WORKBENCH.md;
+full Flipper Zero protocol coverage is not claimed.
 
 ## Navigation, credentials and keyboard
 

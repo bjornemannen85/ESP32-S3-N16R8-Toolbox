@@ -10,7 +10,7 @@ static const size_t MAX_SCRIPT=8192;
 static bool validName(const String &name){
  if(name.length()<3||name.length()>48||name[0]=='.')return false;
  for(size_t i=0;i<name.length();++i){char c=name[i];if(!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='-'||c=='.'))return false;}
- const char *exts[]={".duck",".txt",".ds",".json",".yaml",".ini",".csv",".lua",".js",".py",".sh",".bat",".ps1",".ino",".cpp",".hex",".sub",".ir",".nfc",".rfid"};
+ const char *exts[]={".uart",".ibtn",".duck",".txt",".ds",".json",".yaml",".ini",".csv",".lua",".js",".py",".sh",".bat",".ps1",".ino",".cpp",".hex",".sub",".ir",".nfc",".rfid"};
  for(const char *ext:exts)if(name.endsWith(ext))return true;
  return false;
 }

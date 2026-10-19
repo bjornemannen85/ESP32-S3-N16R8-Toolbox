@@ -28,4 +28,4 @@ if __name__=='__main__':
  p=argparse.ArgumentParser();p.add_argument('--check',action='store_true');a=p.parse_args();target=ROOT/'src/v62_icons.h';value=generate()
  if a.check:assert target.read_text()==value,'Regenerate src/v62_icons.h'
  else:target.write_text(value)
- print('Icon firmware table: 41 icons, 92 routes, TFT 24px and SVG flash data')
+ print('Icon firmware table checked: TFT 24px and SVG flash data')

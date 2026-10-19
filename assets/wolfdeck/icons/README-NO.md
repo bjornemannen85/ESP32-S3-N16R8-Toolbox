@@ -13,7 +13,7 @@ oversettes og forbli lesbare på 320 × 240-skjermen.
 - `wolfdeck_icons_24.h` og `wolfdeck_icons_32.h`: ferdige 1-bits maskebilder
   i PROGMEM. Hele settet bruker henholdsvis 2 952 og 5 248 flash-byte.
   Inkluder bare én størrelse i firmware; farge velges ved tegning.
-- `manifest.json`: alle 92 eksisterende katalogruter, alle 29 skjermsider,
+- `manifest.json`: alle katalogruter og skjermsider,
   kategorier og hjemknapper koblet til ikon-ID. Flere handlinger innen samme
   app deler ikonet, for eksempel UART start/stopp/status.
 - `WOLF-DECK-App-Icons.png`: samlet oversikt, med 24/32-pikslers eksempler.
