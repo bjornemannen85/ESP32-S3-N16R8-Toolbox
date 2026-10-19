@@ -1,0 +1,22 @@
+{
+  "display": {
+    "width": 320,
+    "height": 240,
+    "flash_bytes": 77312,
+    "source_sha256": "a4eb3259858fcc741f005d6afb0536c5ff2b6fe2ac9f92d89aa34a22190763bc"
+  },
+  "boot": {
+    "width": 320,
+    "height": 240,
+    "flash_bytes": 77312,
+    "source_sha256": "1ad900dc463a08f04a19590285706eb583d3d3acfe6322053aa996d150a59ea8"
+  },
+  "web": {
+    "width": 1280,
+    "height": 800,
+    "flash_bytes": 168747,
+    "sha256": "6b430c05ef8eec66cd121c5db68a22480c040b2916421b7d866012fc9c201b1e",
+    "source_sha256": "ad852c67faebfed1d25a29c2ea92f1aedf8349534892f6065a4fe44ffa10bd1c"
+  },
+  "runtime_row_buffer_bytes": 640
+}

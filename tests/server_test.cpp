@@ -42,5 +42,10 @@ int main(){
  // Nested dispatch must fail without corrupting the active request context.
  s.on("/nested",HTTP_GET,[&](){assert(!s.invoke(0,{},""));s.send(201,"text/plain","outer");});
  assert(s.invoke(3,{},""));assert(s.resultCode==201&&s.result=="outer");
+ s.send(200,"text/html","<!doctype html><html><head><style>body{color:white}</style></head><body>hello</body></html>");
+ assert(s.networkBody.find("/wolfdeck_theme.css")!=String::npos);
+ assert(s.networkBody.find("<!doctype html>")==0);
+ assert(s.networkBody.find("/wolfdeck_theme.css")<s.networkBody.find("</head>"));
+ s.send(200,"application/json","{\"ok\":true}");assert(s.networkBody=="{\"ok\":true}");
  std::cout<<"PASS: shared handlers, authentication, validation, context isolation, duplicate routes, bounds, streaming, reentrancy\n";
 }

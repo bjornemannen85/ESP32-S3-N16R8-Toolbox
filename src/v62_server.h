@@ -2,6 +2,7 @@
 #include <WebServer.h>
 #include <functional>
 #include <vector>
+#include <cstring>
 
 // Both interfaces invoke exactly the same validated handlers on the Arduino
 // loop task. No HTTP loopback, duplicated driver state, or background GPIO task.
@@ -37,7 +38,16 @@ public:
   return name=="X-Cyberdeck-Token"?localToken:String();
  }
  void send(int code,const char *type,const String &body) {
-  if(!local){WebServer::send(code,type,body);return;}
+  if(!local){
+   if(type&&std::strstr(type,"text/html")&&!std::strstr(body.c_str(),"/wolfdeck_theme.css")){
+    const char *head=std::strstr(body.c_str(),"</head>");
+    const char *style=std::strstr(body.c_str(),"</style>");
+    size_t pos=head?size_t(head-body.c_str()):style?size_t(style-body.c_str()+8):body.length();
+    String themed=body.substring(0,pos)+"<link rel=\"stylesheet\" href=\"/wolfdeck_theme.css\">"+body.substring(pos);
+    WebServer::send(code,type,themed);
+   }else WebServer::send(code,type,body);
+   return;
+  }
   resultCode=code;result=body.substring(0,RESULT_LIMIT);
   if(body.length()>RESULT_LIMIT)result+="\n[display truncated]";
  }

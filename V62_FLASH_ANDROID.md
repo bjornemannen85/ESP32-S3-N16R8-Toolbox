@@ -1,4 +1,4 @@
-# Cyberdeck V6.2 Full Access — Android
+# WOLF DECK / Cyberdeck V6.2 Full Access — Android
 
 This is a V6.2 development build based on V6.1 commit
 `16e766162af5ad983ba4d37cf1021c7dec6bffe6`.
@@ -17,7 +17,12 @@ credentials and the admin token. Do not erase the entire flash. LittleFS at
 0x610000 lies beyond this firmware image and is not included; its data can
 survive when the unchanged V6.1 NAT partition layout is retained.
 
+WOLF DECK artwork, the web theme and the boot animation are embedded in
+this application image; no separate graphics upload or filesystem flash is needed.
+
 After boot:
+- Check the WOLF DECK logo fade, progress and READY during startup.
+- Check wallpaper, contrast and keyboard response on screen and web.
 - Settings -> WiFi Setup: leave open for at least 30 seconds; test all four
   input fields, symbol keyboard, DONE and BACK repeatedly.
 - Tools -> All Programs: every installed API action has editable fields,

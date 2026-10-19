@@ -21,6 +21,7 @@
 #include <BLEScan.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
+#include "v62_wolfdeck.h"
 
 // ES3C28P: known-good V4.7 display/touch wiring.
 constexpr int LCD_CS=10,LCD_DC=46,LCD_SCK=12,LCD_MOSI=11,LCD_MISO=13,LCD_BL=45;
@@ -86,7 +87,7 @@ void label(const String &s,int x,int y,uint8_t sz=2,uint16_t color=WHITE){lcd.se
 uint16_t tileColor(Page p){switch(p){case WIFI:case RADIO:return ACCENT;case BLE:return BLUE;case NFC:return PURPLE;case SUBGHZ:return ORANGE;case IR:return RED;case PAGE_GPIO:return GREEN;case UART:return ACCENT;case I2C:case SPI_DIAG:return YELLOW;case SYSTEM:return BLUE;case STORAGE:return BLUE;default:return MUTED;}}
 void tile(int x,int y,int w,int h,const String &title,Page target){
  uint16_t c=tileColor(target);
- lcd.fillRoundRect(x,y,w,h,6,PANEL);lcd.drawRoundRect(x,y,w,h,6,c);
+ WolfDeck::panel(lcd,x,y,w,h);lcd.drawRoundRect(x,y,w,h,6,c);
  int cx=x+w/2,cy=y+17;
  if(target==WIFI || target==RADIO){
    lcd.drawCircle(cx,cy,10,c);lcd.drawCircle(cx,cy,6,c);lcd.fillCircle(cx,cy,2,c);
@@ -107,7 +108,7 @@ void tile(int x,int y,int w,int h,const String &title,Page target){
 }
 void button(int x,int y,int w,int h,const String &s){lcd.fillRoundRect(x,y,w,h,7,PANEL);lcd.drawRoundRect(x,y,w,h,7,ACCENT);label(s,x+10,y+(h-16)/2,2);}
 String clipped(String s,size_t n);
-void header(const String &s){lcd.fillScreen(BG);lcd.fillRect(0,0,320,33,PANEL);lcd.drawFastHLine(0,33,320,ACCENT);label(clipped(s,25),8,9,1,ACCENT);}
+void header(const String &s){WolfDeck::background(lcd);lcd.fillRect(0,0,320,33,PANEL);lcd.drawFastHLine(0,33,320,ACCENT);label(clipped(s,25),8,9,1,ACCENT);}
 void backButton(){button(8,198,104,35,"BACK");}
 void footer(const String &s){label(s,9,235,1,MUTED);}
 String clipped(String s,size_t n){if(s.length()>n)s=s.substring(0,n-2)+"..";return s;}
@@ -124,7 +125,7 @@ void initStorage(){
 }
 void draw(){
  if(page==WIFI_KEYBOARD)header("EDIT "+String(wifiField==0?"HOME SSID":wifiField==1?"HOME PASS":wifiField==2?"AP SSID":wifiField==3?"AP PASS":v62KeyTitle));
- else header(page==HOME?"CYBERDECK V6.2 FULL":(page<PAGE_COUNT?names[page]:"UNKNOWN"));
+ else header(page==HOME?"WOLF DECK V6.2":(page<PAGE_COUNT?names[page]:"UNKNOWN"));
  switch(page){
  case HOME:{
   const Page homeItems[]={WIFI,BLE,NFC,SUBGHZ,IR,PAGE_GPIO,UART,I2C,STORAGE,SYSTEM,SETTINGS,TOOLS};
@@ -231,8 +232,8 @@ void draw(){
  }
  case SETTINGS:
   label("WEB DASHBOARD ACTIVE",12,126,1,GREEN);
-  label("SSID: "+v6SSID,12,144,1,WHITE);
-  label("PASS: "+v6Password,12,158,1,WHITE);
+  label("SSID: "+V61WiFi::apSSID,12,144,1,WHITE);
+  label("PASS: "+V61WiFi::apPassword,12,158,1,WHITE);
   label("OPEN: 192.168.4.1",12,173,1,ACCENT);
   label("ADMIN TOKEN:",12,43,1,ORANGE);
   label(V61WiFi::adminToken,12,57,1,WHITE);
@@ -298,7 +299,33 @@ void enter(Page p,Page from){
  if(p==PROGRAMS){v62Filter="";v62Offset=0;}
  if(historyDepth<12)history[historyDepth++]=page;
  parent=from;page=p;draw();}
-void setup(){Serial.begin(115200);delay(250);pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);digitalWrite(TOUCH_RST,HIGH);delay(120);Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);touchOK=Wire.endTransmission()==0;WiFi.mode(WIFI_OFF);v6Start();V61WiFi::start();v6SSID=V61WiFi::apSSID;v6Password=V61WiFi::apPassword;wifiEditApSSID=v6SSID;V61WiFi::routes(v6Server);V61Scripts::begin();V61Scripts::routes(v6Server);V61Bundle2640::routes(v6Server);V61Bundle4160::routes(v6Server);V61Bundle6180::routes(v6Server);V61Bundle81100::routes(v6Server);V61Bundle101120::routes(v6Server);V61BleTransfer::routes(v6Server);V61ReleaseGuard::routes(v6Server);V61USBHID::routes(v6Server);V61MicroSD::routes(v6Server);V61Mega::routes(v6Server);V61Bundle::routes(v6Server);v62Register();/* SDMMC pin map not yet verified: initStorage() disabled */ Serial.printf("ES3C28P V6.2 touch=%s\n",touchOK?"YES":"NO");draw();}
+void setup(){
+ Serial.begin(115200);delay(250);
+ pinMode(LCD_BL,OUTPUT);digitalWrite(LCD_BL,HIGH);
+ lcdSPI.begin(LCD_SCK,LCD_MISO,LCD_MOSI,LCD_CS);
+ lcd.begin(40000000);lcd.setRotation(1);lcd.invertDisplay(true);
+ WolfDeck::bootBegin(lcd);WolfDeck::bootStep(lcd,15,"DISPLAY READY");
+ pinMode(TOUCH_RST,OUTPUT);digitalWrite(TOUCH_RST,LOW);delay(15);
+ digitalWrite(TOUCH_RST,HIGH);delay(120);
+ Wire.begin(TOUCH_SDA,TOUCH_SCL,100000);Wire.beginTransmission(TOUCH_ADDR);
+ touchOK=Wire.endTransmission()==0;
+ WolfDeck::bootStep(lcd,30,touchOK?"TOUCH READY":"TOUCH NOT DETECTED");
+ WiFi.mode(WIFI_OFF);v6Start();WolfDeck::bootStep(lcd,45,"WEB SERVER STARTED");
+ V61WiFi::start();v6SSID=V61WiFi::apSSID;v6Password=V61WiFi::apPassword;
+ wifiEditApSSID=v6SSID;V61WiFi::routes(v6Server);
+ WolfDeck::bootStep(lcd,60,"WIFI / NAT CONFIG LOADED");
+ V61Scripts::begin();V61Scripts::routes(v6Server);
+ WolfDeck::bootStep(lcd,75,V61Scripts::ready?"SCRIPT STORAGE READY":"SCRIPT STORAGE UNAVAILABLE");
+ V61Bundle2640::routes(v6Server);V61Bundle4160::routes(v6Server);
+ V61Bundle6180::routes(v6Server);V61Bundle81100::routes(v6Server);
+ V61Bundle101120::routes(v6Server);V61BleTransfer::routes(v6Server);
+ V61ReleaseGuard::routes(v6Server);V61USBHID::routes(v6Server);
+ V61MicroSD::routes(v6Server);V61Mega::routes(v6Server);V61Bundle::routes(v6Server);
+ v62Register();WolfDeck::bootStep(lcd,95,"ALL PROGRAMS REGISTERED");
+ // Retain the existing manual-only SD mount policy.
+ Serial.printf("WOLF DECK V6.2 touch=%s\n",touchOK?"YES":"NO");
+ WolfDeck::bootReady(lcd);draw();
+}
 void loop(){
  v6Server.handleClient();V61WiFi::tick();V61Bundle81100::tick();V61BleTransfer::tick();
  uint16_t x=0,y=0;bool pressed=readTouch(x,y);
