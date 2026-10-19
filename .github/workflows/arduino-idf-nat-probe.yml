@@ -21,3 +21,12 @@ jobs:
           target: esp32s3
           path: idf_arduino_nat_probe
           command: bash ci/diagnose.sh
+
+      - name: Upload ESP32-S3 NAT merged firmware
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cyberdeck-v6.1-nat-firmware
+          path: idf_arduino_nat_probe/build/esp32-s3-v6.1-nat-merged.bin
+          if-no-files-found: error
+          retention-days: 30
