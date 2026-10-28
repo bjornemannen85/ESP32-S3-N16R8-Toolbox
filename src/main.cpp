@@ -263,8 +263,6 @@ void draw(){
   label("SSID: "+V61WiFi::apSSID,12,144,1,WHITE);
   label("PASS: "+V61WiFi::apPassword,12,158,1,WHITE);
   label("OPEN: 192.168.4.1",12,173,1,ACCENT);
-  label("ADMIN TOKEN:",12,43,1,ORANGE);
-  label(V61WiFi::adminToken,12,57,1,WHITE);
   label("WiFi manager: /wifi",12,79,1,GREEN);
   label("Tap WIFI SETUP below",12,101,1,GREEN);backButton();button(121,198,191,35,"WIFI SETUP");break;
  case LOGS:{
