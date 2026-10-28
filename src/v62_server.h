@@ -21,7 +21,7 @@ public:
   if(!found)programs.push_back({String(path),method,fn});
   WebServer::on(path,method,fn);
  }
- bool invoke(size_t index,const std::vector<Field> &fields,) {
+ bool invoke(size_t index,const std::vector<Field> &fields) {
   if(local||index>=programs.size())return false;
   local=true;arguments=fields;result="";resultCode=0;
   programs[index].run();
