@@ -21,11 +21,11 @@ public:
   if(!found)programs.push_back({String(path),method,fn});
   WebServer::on(path,method,fn);
  }
- bool invoke(size_t index,const std::vector<Field> &fields,const String &token) {
+ bool invoke(size_t index,const std::vector<Field> &fields,) {
   if(local||index>=programs.size())return false;
-  local=true;arguments=fields;localToken=token;result="";resultCode=0;
+  local=true;arguments=fields;result="";resultCode=0;
   programs[index].run();
-  local=false;arguments.clear();localToken="";
+  local=false;arguments.clear();
   return true;
  }
  String arg(const String &name) {
@@ -35,7 +35,7 @@ public:
  }
  String header(const String &name) {
   if(!local)return WebServer::header(name);
-  return name=="X-Cyberdeck-Token"?localToken:String();
+  return String();
  }
  void send(int code,const char *type,const String &body) {
   if(!local){
@@ -68,6 +68,6 @@ public:
  }
 private:
  bool local=false;
- String localToken;
+
  std::vector<Field> arguments;
 };

@@ -156,7 +156,7 @@ void v62Touch(uint16_t x,uint16_t y){
    else if(x>=121&&x<175)v62Offset=v62Offset>=5?v62Offset-5:0;
    draw();
   }else if(page==PROGRAM_ACTION&&x>=181){
-   v6Server.invoke(v62Selected,v62Arguments,V61WiFi::adminToken);
+   v6Server.invoke(v62Selected,v62Arguments);
    v62SyncBle();v62ResultOffset=0;v62IndexResult();page=PROGRAM_RESULT;draw();
   }else if(page==PROGRAM_RESULT){
    if(x>=241){page=PROGRAMS;draw();}
