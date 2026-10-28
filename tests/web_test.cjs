@@ -29,11 +29,11 @@ function field(name,value){w.document.querySelector(`[name="${name}"]`).value=va
  assert(w.getComputedStyle(w.document.body).backgroundImage.includes('wolfdeck_web_background.jpg'));
  assert.equal(w.getComputedStyle(w.document.body).color,'rgb(237, 248, 255)');
  assert.equal(w.document.querySelector('h1').textContent,'WOLF DECK');
- el('token').value='private-test-token';search('/api/v61/uart/start');
+ assert.equal(el('token'),null);search('/api/v61/uart/start');
  assert(el('program-icon').src.endsWith('/wolfdeck_icons/uart.svg'));assert.equal(el('program-icon').hidden,false);
  field('rx','4');field('tx','5');field('baud','4800');el('run').click();await tick();
  let r=requests.at(-1);assert.equal(r.url,'/api/v61/uart/start');assert.equal(r.method,'POST');
- assert.equal(r.headers['X-Cyberdeck-Token'],'private-test-token');assert.equal(r.body.toString(),'rx=4&tx=5&baud=4800');
+ assert.equal(r.headers['X-Cyberdeck-Token'],undefined);assert.equal(r.body.toString(),'rx=4&tx=5&baud=4800');
  assert.equal(el('out').textContent,'HTTP 200\nmock-device-result');
  el('categories').querySelector('[data-category="3"]').click();search('/scripts/save');field('name','test.txt');field('content','line 1\n<&line 2');el('run').click();await tick();
  assert.equal(requests.at(-1).body.get('content'),'line 1\n<&line 2');
